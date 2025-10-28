@@ -1,11 +1,11 @@
+use crate::App;
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Style},
     text::Line,
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
-use crate::App;
 
 pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     let text = if app.search_mode {
@@ -15,9 +15,9 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ratatui::text::Span::raw(" | ESC: Cancel | Enter: Confirm"),
         ])]
     } else {
-        vec![Line::from(vec![
-            ratatui::text::Span::raw("F1: Processes | F2: Stats | Ctrl+F: Search | Shift+Q: Kill | Enter: Expand | ↑↓: Navigate | Mouse: Click & Scroll | Ctrl+C: Exit"),
-        ])]
+        vec![Line::from(vec![ratatui::text::Span::raw(
+            "F1: Processes | F2: Stats | Ctrl+F: Search | Shift+Q: Kill | Enter: Expand | ↑↓: Navigate | Mouse: Click & Scroll | Ctrl+C: Exit",
+        )])]
     };
 
     let footer = Paragraph::new(text)
