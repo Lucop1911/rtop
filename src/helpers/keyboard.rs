@@ -1,4 +1,3 @@
-// src/helpers/keyboard.rs
 use crate::App;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};

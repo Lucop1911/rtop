@@ -1,6 +1,6 @@
 use crate::App;
 
-/// Returns (total_received_bytes, total_transmitted_bytes)
+// Returns (total_received_bytes, total_transmitted_bytes)
 pub fn calculate_network_totals(app: &App) -> (u64, u64) {
     app.networks
         .iter()
@@ -8,7 +8,7 @@ pub fn calculate_network_totals(app: &App) -> (u64, u64) {
         .fold((0, 0), |(rx, tx), (r, t)| (rx + r, tx + t))
 }
 
-/// Returns per-interface info as Vec<(name, received_MB, transmitted_MB)>
+// Returns per-interface info as Vec<(name, received_MB, transmitted_MB)>
 pub fn per_interface_info(app: &App) -> Vec<(String, f64, f64)> {
     app.networks
         .iter()
