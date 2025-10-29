@@ -151,19 +151,6 @@ impl App {
             self.build_process_tree();
         }
     }
-
-    fn force_refresh(&mut self) {
-        self.system.refresh_cpu_all(); // CPU usage update
-        self.system.refresh_memory();
-        self.system.refresh_processes_specifics(
-            sysinfo::ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::everything().with_cpu(),
-        );
-
-        self.networks.refresh(true);
-        self.build_process_tree();
-    }
 }
 
 fn main() -> Result<()> {
@@ -199,14 +186,11 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
         if event::poll(Duration::from_millis(100))? {
             match event::read()? {
                 Event::Key(key) => {
-                    // delegate all key handling to helpers/keyboard.rs
-                    // returns Ok(true) when the helper signals to exit (Ctrl+C)
                     if handle_key_event(app, key.code, key.modifiers)? {
                         return Ok(());
                     }
                 }
                 Event::Mouse(mouse) => {
-                    // delegate mouse handling to helpers/mouse.rs
                     handle_mouse(app, mouse.kind, mouse.column, mouse.row);
                 }
                 _ => {}

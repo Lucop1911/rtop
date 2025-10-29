@@ -1,6 +1,21 @@
+use sysinfo::ProcessRefreshKind;
 use crate::{App, ProcessNode};
 
 impl App {
+
+    pub fn force_refresh(&mut self) {
+        self.system.refresh_cpu_all(); // CPU usage update
+        self.system.refresh_memory();
+        self.system.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::everything().with_cpu(),
+        );
+
+        self.networks.refresh(true);
+        self.build_process_tree();
+    }
+
     pub fn flatten_processes(&self) -> Vec<(usize, &ProcessNode)> {
         let mut result = Vec::new();
         for node in &self.processes {
