@@ -1,5 +1,6 @@
 use crate::{App, Page, SortColumn};
 use crossterm::event::MouseEventKind;
+use ratatui::layout::Constraint;
 use std::time::{Duration, Instant};
 
 pub fn handle_mouse(app: &mut App, kind: MouseEventKind, x: u16, y: u16) {
@@ -32,20 +33,46 @@ impl App {
 
         // Check if clicking on header for sorting
         if self.page == Page::Processes && self.header_area.contains((x, y).into()) {
-            let header_y = self.header_area.y + 1; // Account for border
+            let header_y = self.header_area.y + 1;
             if y == header_y {
-                // Determine which column was clicked based on X position
+                let table_width = self.header_area.width.saturating_sub(2);
                 let relative_x = x.saturating_sub(self.header_area.x + 1);
-                let name_col_start = 10;
-                let name_col_width = self.header_area.width.saturating_sub(37);
-                let cpu_col_start = name_col_start + name_col_width;
-                let mem_col_start = cpu_col_start + 12;
 
-                let new_column = if relative_x < name_col_start {
+                // Same constraints as used in draw_processes
+                let constraints = [
+                    Constraint::Length(10),
+                    Constraint::Percentage(50),
+                    Constraint::Length(12),
+                    Constraint::Length(15),
+                ];
+
+                // Compute column widths in actual characters
+                let mut widths = vec![];
+                let mut remaining = table_width;
+                for c in constraints {
+                    let w = match c {
+                        Constraint::Length(n) => n,
+                        Constraint::Percentage(p) => (table_width * p as u16 / 100).max(1),
+                        _ => 1,
+                    };
+                    widths.push(w.min(remaining));
+                    remaining = remaining.saturating_sub(w);
+                }
+
+                // Build cumulative edges
+                let mut col_edges = Vec::new();
+                let mut start = 0;
+                for w in &widths {
+                    col_edges.push((start, start + *w));
+                    start += *w;
+                }
+
+                // Now match the click position to the correct range
+                let new_column = if relative_x < col_edges[0].1 {
                     Some(SortColumn::Pid)
-                } else if relative_x < cpu_col_start {
+                } else if relative_x < col_edges[1].1 {
                     Some(SortColumn::Name)
-                } else if relative_x < mem_col_start {
+                } else if relative_x < col_edges[2].1 {
                     Some(SortColumn::Cpu)
                 } else {
                     Some(SortColumn::Memory)
@@ -57,17 +84,16 @@ impl App {
                             self.reverse_sort = !self.reverse_sort;
                         } else {
                             self.sort_column = col;
-                            self.reverse_sort = match col {
-                                SortColumn::Cpu | SortColumn::Memory => true,
-                                _ => false,
-                            };
+                            self.reverse_sort = matches!(col, SortColumn::Cpu | SortColumn::Memory);
                         }
                         self.force_refresh();
                     }
                 }
+
                 return true;
             }
         }
+
 
         // Check if clicking on process rows
         if self.page == Page::Processes && self.table_area.contains((x, y).into()) {

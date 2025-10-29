@@ -21,7 +21,8 @@ use std::{
     io,
     time::{Duration, Instant},
 };
-use sysinfo::{Networks, Pid, ProcessRefreshKind, System};
+use sysinfo::{Networks, Pid, System};
+
 
 #[derive(PartialEq, Clone, Copy)]
 enum SortColumn {
@@ -41,7 +42,6 @@ enum Page {
 struct ProcessInfo {
     pid: Pid,
     name: String,
-    parent: Option<Pid>,
     cpu_usage: f32,
     memory: u64,
 }
@@ -69,25 +69,19 @@ struct App {
     table_area: Rect,
     last_click: Option<(Instant, u16, u16)>,
     header_area: Rect,
+    selected_pid: Option<Pid>,
+    update_interval: Duration,
+    viewport_offset: usize,  // Track the top of the visible area
 }
 
 impl App {
     fn new() -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        std::thread::sleep(Duration::from_millis(500));
-        system.refresh_cpu_all(); // 1st measurement
-        std::thread::sleep(Duration::from_millis(500));
-        system.refresh_cpu_all(); // 2nd measurement
-
-        // Wait for initial CPU measurements
-        std::thread::sleep(Duration::from_millis(1000));
+        std::thread::sleep(Duration::from_millis(200));
         system.refresh_cpu_all();
-        system.refresh_processes_specifics(
-            sysinfo::ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::everything().with_cpu(),
-        );
+        std::thread::sleep(Duration::from_millis(200));
+        system.refresh_cpu_all();
 
         let networks = Networks::new_with_refreshed_list();
 
@@ -108,6 +102,9 @@ impl App {
             table_area: Rect::default(),
             last_click: None,
             header_area: Rect::default(),
+            selected_pid: None,
+            update_interval: Duration::from_millis(1000),
+            viewport_offset: 0,
         };
 
         app.build_process_tree();
@@ -116,13 +113,20 @@ impl App {
     }
 
     fn update(&mut self) {
-        if self.last_update.elapsed() >= Duration::from_millis(1000) {
-            self.system.refresh_cpu_all(); // CPU usage update
+        if self.last_update.elapsed() >= self.update_interval {
+            // Quick refresh - only what's needed
+            self.system.refresh_cpu_all();
             self.system.refresh_memory();
-            self.system.refresh_processes_specifics(
-                sysinfo::ProcessesToUpdate::All,
+
+            use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
+            let mut system = System::new_all();
+
+            system.refresh_processes_specifics(
+                ProcessesToUpdate::All,
                 true,
-                ProcessRefreshKind::everything().with_cpu(),
+                ProcessRefreshKind::nothing()
+                    .with_cpu()
+                    .with_memory(),
             );
 
             self.networks.refresh(true);
@@ -149,6 +153,30 @@ impl App {
 
             self.last_update = Instant::now();
             self.build_process_tree();
+        }
+    }
+
+    // Remember selected process PID
+    fn remember_selection(&mut self) {
+        self.selected_pid = self.table_state.selected().and_then(|idx| {
+            let flat = self.flatten_processes();
+            flat.get(idx).map(|(_, node)| node.info.pid)
+        });
+    }
+
+    // Restore selection after rebuild - find the PID but don't change viewport
+    fn restore_selection(&mut self) {
+        if let Some(pid) = self.selected_pid {
+            let flat = self.flatten_processes();
+            if let Some(new_idx) = flat.iter().position(|(_, node)| node.info.pid == pid) {
+                // Update selection index without forcing viewport to follow
+                self.table_state.select(Some(new_idx));
+            } else if !flat.is_empty() {
+                // Process no longer exists, select first item and reset viewport
+                self.table_state.select(Some(0));
+                self.viewport_offset = 0;
+                self.selected_pid = None;
+            }
         }
     }
 }
@@ -183,7 +211,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
         app.update();
         terminal.draw(|f| ui(f, app))?;
 
-        if event::poll(Duration::from_millis(100))? {
+        // Use shorter poll time for more responsive UI
+        if event::poll(Duration::from_millis(50))? {
             match event::read()? {
                 Event::Key(key) => {
                     if handle_key_event(app, key.code, key.modifiers)? {
@@ -192,6 +221,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                 }
                 Event::Mouse(mouse) => {
                     handle_mouse(app, mouse.kind, mouse.column, mouse.row);
+                }
+                Event::Resize(_, _) => {
+                    // Force redraw on resize
+                    terminal.draw(|f| ui(f, app))?;
                 }
                 _ => {}
             }

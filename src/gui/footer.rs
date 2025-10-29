@@ -15,14 +15,22 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ratatui::text::Span::raw(" | ESC: Cancel | Enter: Confirm"),
         ])]
     } else {
-        vec![Line::from(vec![ratatui::text::Span::raw(
-            "F1: Processes | F2: Stats | Ctrl+F: Search | Shift+Q: Kill | Enter: Expand | ↑↓: Navigate | Mouse: Click & Scroll | Ctrl+C: Exit",
-        )])]
+        let update_ms = app.update_interval.as_millis();
+        vec![Line::from(vec![
+            ratatui::text::Span::raw("F1/1: Processes | F2/2: Stats | /: Search | K/Del: Kill | R: Refresh | Space/Enter: Expand | "),
+            ratatui::text::Span::raw("↑↓/jk: Navigate | g/G: Top/Bottom | PgUp/PgDn | "),
+            ratatui::text::Span::raw("p/n/c/m: Sort | +/-: Speed ("),
+            ratatui::text::Span::styled(
+                format!("{}ms", update_ms),
+                Style::default().fg(Color::Yellow)
+            ),
+            ratatui::text::Span::raw(") | q/ESC: Exit"),
+        ])]
     };
 
     let footer = Paragraph::new(text)
         .block(Block::default().borders(Borders::ALL))
-        .alignment(ratatui::layout::Alignment::Center)
+        .alignment(ratatui::layout::Alignment::Left)
         .style(Style::default().fg(Color::Cyan));
 
     f.render_widget(footer, area);
