@@ -81,6 +81,7 @@ impl App {
                     self.expanded_pids.insert(pid, !expanded);
                     // Invalidate cache when expanding/collapsing
                     self.cached_flat_processes = None;
+                    self.force_refresh();
                 }
             }
         }
@@ -141,30 +142,66 @@ impl App {
         }
     }
 
-    // Remember selected process PID
-    pub fn remember_selection(&mut self) {
-        self.selected_pid = self.table_state.selected().and_then(|idx| {
-            self.get_process_at_flat_index(idx).map(|node| node.info.pid)
-        });
+    // Page down
+    pub fn page_down(&mut self) {
+        let flat_len = self.flatten_processes().len();
+        if flat_len > 0 {
+            let visible_rows = self.table_area.height.saturating_sub(4) as usize;
+            let current = self.table_state.selected().unwrap_or(0);
+            let new_idx = (current + visible_rows).min(flat_len - 1);
+            self.table_state.select(Some(new_idx));
+            self.ensure_visible(new_idx);
+        }
     }
 
-    // Restore selection after rebuild - find the PID but don't change viewport
+    // Page up
+    pub fn page_up(&mut self) {
+        let flat_len = self.flatten_processes().len();
+        if flat_len > 0 {
+            let visible_rows = self.table_area.height.saturating_sub(4) as usize;
+            let current = self.table_state.selected().unwrap_or(0);
+            let new_idx = current.saturating_sub(visible_rows);
+            self.table_state.select(Some(new_idx));
+            self.ensure_visible(new_idx);
+        }
+    }
+
+    // Select first matching process in search results
+    pub fn select_first_matching(&mut self) {
+        let flat = self.flatten_processes();
+        if !flat.is_empty() {
+            // First matching process is at index 0 after filtering
+            self.table_state.select(Some(0));
+            self.viewport_offset = 0;
+        } else {
+            // No matches
+            self.table_state.select(None);
+        }
+    }
+
+    // Remember selected line position (not PID)
+    pub fn remember_selection(&mut self) {
+        // We don't need to remember anything - selection stays at the same line number
+    }
+
+    // Restore selection after rebuild - keep same line number
     pub fn restore_selection(&mut self) {
-        if let Some(pid) = self.selected_pid {
-            let flat_len = self.flatten_processes().len();
-            if let Some(ref cached) = self.cached_flat_processes {
-                if let Some(new_idx) = cached.iter().position(|(_, node_idx)| {
-                    self.processes.get(*node_idx).map_or(false, |n| n.info.pid == pid)
-                }) {
-                    // Update selection index without forcing viewport to follow
-                    self.table_state.select(Some(new_idx));
-                } else if flat_len > 0 {
-                    // Process no longer exists, select first item and reset viewport
-                    self.table_state.select(Some(0));
-                    self.viewport_offset = 0;
-                    self.selected_pid = None;
+        let flat_len = self.flatten_processes().len();
+        if flat_len > 0 {
+            // Keep the current selection index, but clamp it to valid range
+            if let Some(current_idx) = self.table_state.selected() {
+                if current_idx >= flat_len {
+                    // If the selected line no longer exists (list got shorter), select last item
+                    self.table_state.select(Some(flat_len - 1));
                 }
+                // Otherwise keep the same line number selected
+            } else {
+                // No selection, select first item
+                self.table_state.select(Some(0));
             }
+        } else {
+            // No processes in list
+            self.table_state.select(None);
         }
     }
 }

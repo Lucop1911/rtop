@@ -5,8 +5,8 @@ use crate::{App, ProcessInfo};
 
 impl App {
     pub fn build_process_tree(&mut self) {
-        // Remember selection before rebuilding
-        self.remember_selection();
+        // Remember selection line number before rebuilding
+        let selected_line = self.table_state.selected();
 
         let mut process_infos: HashMap<Pid, ProcessInfo> = HashMap::new();
         let mut children_map: HashMap<Pid, Vec<Pid>> = HashMap::new();
@@ -43,7 +43,21 @@ impl App {
         self.sort_processes(&mut roots);
         self.processes = roots;
 
-        // Restore selection to same PID
-        self.restore_selection();
+        // Invalidate cache after rebuilding tree
+        self.cached_flat_processes = None;
+
+        // Restore selection to same line number
+        let flat_len = self.flatten_processes().len();
+        if flat_len > 0 {
+            if let Some(idx) = selected_line {
+                // Keep same line number, but clamp to valid range
+                self.table_state.select(Some(idx.min(flat_len - 1)));
+            } else {
+                // No previous selection, select first item
+                self.table_state.select(Some(0));
+            }
+        } else {
+            self.table_state.select(None);
+        }
     }
 }

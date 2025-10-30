@@ -10,17 +10,34 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 app.search_mode = false;
                 app.search_query.clear();
                 app.cached_flat_processes = None;  // Invalidate cache
+                app.force_refresh();
             }
             KeyCode::Enter => {
                 app.search_mode = false;
+                // Find and select first matching process
+                app.select_first_matching();
             }
             KeyCode::Char(c) => {
                 app.search_query.push(c);
                 app.cached_flat_processes = None;  // Invalidate cache on search change
+                app.force_refresh();
+                // Auto-select first match as user types
+                app.select_first_matching();
             }
             KeyCode::Backspace => {
                 app.search_query.pop();
                 app.cached_flat_processes = None;  // Invalidate cache on search change
+                app.force_refresh();
+                // Auto-select first match as user deletes
+                app.select_first_matching();
+            }
+            KeyCode::Down => {
+                // Allow navigation while searching
+                app.select_next();
+            }
+            KeyCode::Up => {
+                // Allow navigation while searching
+                app.select_prev();
             }
             _ => {}
         }
@@ -99,6 +116,12 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             }
             KeyCode::End => {
                 app.go_to_bottom();
+            }
+            KeyCode::PageDown => {
+                app.page_down();
+            }
+            KeyCode::PageUp => {
+                app.page_up();
             }
             _ => {}
         }

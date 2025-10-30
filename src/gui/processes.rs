@@ -1,52 +1,228 @@
-use std::collections::HashMap;
-use sysinfo::Pid;
+use ratatui::{
+    Frame,
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Paragraph, Row, Table},
+};
 
-use crate::{App, ProcessInfo};
+use crate::App;
 
-impl App {
-    pub fn build_process_tree(&mut self) {
-        // Remember selection before rebuilding
-        self.remember_selection();
+pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
+    // Split the area into main table and detail panel
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(70),  // Process table
+            Constraint::Percentage(30),  // Detail panel
+        ])
+        .split(area);
 
-        let mut process_infos: HashMap<Pid, ProcessInfo> = HashMap::new();
-        let mut children_map: HashMap<Pid, Vec<Pid>> = HashMap::new();
+    app.table_area = chunks[0];
+    
+    let flat = app.flatten_processes().clone();
+    let visible_rows = chunks[0].height.saturating_sub(4) as usize;
+    
+    // Calculate visible range
+    let start = app.viewport_offset;
+    let end = (start + visible_rows).min(flat.len());
+    let visible_processes = &flat[start..end];
 
-        // Pre-allocate with estimated capacity
-        let process_count = self.system.processes().len();
-        process_infos.reserve(process_count);
+    // Calculate line number width (max 5 digits)
+    let max_line_num = flat.len();
+    let line_num_width = max_line_num.to_string().len().max(3) as u16;
 
-        // Collect all process information
-        for (pid, process) in self.system.processes() {
-            let info = ProcessInfo {
-                pid: *pid,
-                name: process.name().to_string_lossy().to_string(),
-                cpu_usage: process.cpu_usage(),
-                memory: process.memory(),
+    let rows: Vec<Row> = visible_processes
+        .iter()
+        .enumerate()
+        .map(|(i, (depth, _))| {
+            let actual_idx = start + i;
+            let node = app.get_process_at_flat_index(actual_idx).unwrap();
+            
+            let indent = "  ".repeat(*depth);
+            let expand_indicator = if !node.children.is_empty() {
+                if node.expanded { "▼ " } else { "▶ " }
+            } else {
+                "  "
             };
-            process_infos.insert(*pid, info);
+            let name = format!("{}{}{}", indent, expand_indicator, node.info.name);
+            
+            let is_selected = Some(actual_idx) == app.table_state.selected();
+            let style = if is_selected {
+                Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
 
-            // Build parent-child relationships
-            if let Some(parent_pid) = process.parent() {
-                children_map
-                    .entry(parent_pid)
-                    .or_insert_with(Vec::new)
-                    .push(*pid);
+            // Line number in first column
+            let line_num = format!("{:>width$}", actual_idx + 1, width = line_num_width as usize);
+
+            Row::new(vec![
+                line_num,
+                format!("{}", node.info.pid.as_u32()),
+                name,
+                format!("{:.1}%", node.info.cpu_usage),
+                format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0),
+            ])
+            .style(style)
+        })
+        .collect();
+
+    let header = Row::new(vec!["#", "PID", "Name", "CPU%", "Memory"])
+        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(line_num_width + 1),
+            Constraint::Length(10),
+            Constraint::Percentage(50),
+            Constraint::Length(12),
+            Constraint::Length(15),
+        ],
+    )
+    .header(header)
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!("Processes ({}/{})", flat.len(), app.system.processes().len())),
+    );
+
+    // Store header area for mouse clicks
+    app.header_area = Rect {
+        x: chunks[0].x,
+        y: chunks[0].y,
+        width: chunks[0].width,
+        height: 3,
+    };
+
+    f.render_widget(table, chunks[0]);
+
+    // Draw detail panel
+    draw_detail_panel(f, app, chunks[1]);
+}
+
+fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
+    let selected_node = app.table_state.selected()
+        .and_then(|idx| app.get_process_at_flat_index(idx));
+
+    let content = if let Some(node) = selected_node {
+        let process = app.system.process(node.info.pid);
+        
+        let mut lines = vec![
+            Line::from(vec![
+                Span::styled("PID: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", node.info.pid.as_u32())),
+            ]),
+            Line::from(vec![
+                Span::styled("Name: ", Style::default().fg(Color::Cyan)),
+                Span::raw(&node.info.name),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("CPU Usage: ", Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("{:.2}%", node.info.cpu_usage),
+                    Style::default().fg(if node.info.cpu_usage > 50.0 { Color::Red } else { Color::Green })
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled("Memory: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0)),
+            ]),
+        ];
+
+        if let Some(proc) = process {
+            lines.push(Line::from(""));
+            
+            // Parent PID
+            if let Some(parent_pid) = proc.parent() {
+                lines.push(Line::from(vec![
+                    Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(format!("{}", parent_pid.as_u32())),
+                ]));
             }
+
+            // Status
+            lines.push(Line::from(vec![
+                Span::styled("Status: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:?}", proc.status())),
+            ]));
+
+            // Virtual memory
+            lines.push(Line::from(vec![
+                Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:.2} MB", proc.virtual_memory() as f64 / 1024.0 / 1024.0)),
+            ]));
+
+            // Disk usage
+            let disk_usage = proc.disk_usage();
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Disk Read: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:.2} MB", disk_usage.read_bytes as f64 / 1024.0 / 1024.0)),
+            ]));
+            lines.push(Line::from(vec![
+                Span::styled("Disk Write: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:.2} MB", disk_usage.written_bytes as f64 / 1024.0 / 1024.0)),
+            ]));
+
+            // Run time
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}s", proc.run_time())),
+            ]));
+
+            // Start time
+            lines.push(Line::from(vec![
+                Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", proc.start_time())),
+            ]));
+
+            // Command line (truncated)
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow))));
+            let cmd_parts: Vec<String> = proc.cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect();
+            let cmd = cmd_parts.join(" ");
+            let max_width = (area.width.saturating_sub(4)) as usize;
+            if cmd.len() > max_width {
+                let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
+                lines.push(Line::from(truncated));
+            } else {
+                lines.push(Line::from(cmd));
+            }
+
+            // Children count
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", node.children.len())),
+            ]));
         }
 
-        // Show all processes as roots (flat structure)
-        let mut roots = Vec::with_capacity(process_count);
-        for (pid, _info) in &process_infos {
-            roots.push(self.build_node(*pid, &process_infos, &children_map));
-        }
+        lines
+    } else {
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "No process selected",
+                Style::default().fg(Color::DarkGray)
+            )),
+        ]
+    };
 
-        self.sort_processes(&mut roots);
-        self.processes = roots;
+    let paragraph = Paragraph::new(content)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Process Details")
+                .style(Style::default().fg(Color::White))
+        )
+        .style(Style::default());
 
-        // Invalidate cache after rebuilding tree
-        self.cached_flat_processes = None;
-
-        // Restore selection to same PID
-        self.restore_selection();
-    }
+    f.render_widget(paragraph, area);
 }

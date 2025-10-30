@@ -12,13 +12,13 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         vec![Line::from(vec![
             ratatui::text::Span::raw("Search: "),
             ratatui::text::Span::styled(&app.search_query, Style::default().fg(Color::Yellow)),
-            ratatui::text::Span::raw(" | ESC: Cancel | Enter: Confirm"),
+            ratatui::text::Span::raw(" | ↑↓: Navigate | ESC: Cancel | Enter: Confirm"),
         ])]
     } else {
         let update_ms = app.update_interval.as_millis();
         vec![Line::from(vec![
             ratatui::text::Span::raw("1: Processes | 2: Stats | /: Search | K: Kill | R: Refresh | Space/Enter: Expand | "),
-            ratatui::text::Span::raw("↑↓: Navigate | g/h: Top/Bottom | "),
+            ratatui::text::Span::raw("↑↓/PgUp/PgDn: Navigate | g/h: Top/Bottom | "),
             ratatui::text::Span::raw("p/n/c/m: Sort | +/-: Speed ("),
             ratatui::text::Span::styled(
                 format!("{}ms", update_ms),
