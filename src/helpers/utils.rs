@@ -2,7 +2,6 @@ use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 use crate::{App, ProcessNode};
 
 impl App {
-
     pub fn force_refresh(&mut self) {
         self.system.refresh_cpu_all();
         self.system.refresh_memory();
@@ -167,4 +166,7 @@ impl App {
             self.table_state.select(None);
         }
     }
+}
+pub fn calculate_avg_cpu(app: &App) -> f32 {
+    app.system.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / app.system.cpus().len() as f32
 }

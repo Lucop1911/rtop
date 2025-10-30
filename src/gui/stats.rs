@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
-use crate::{App, helpers::cpu::calculate_avg_cpu, helpers::memory, helpers::network};
+use crate::{App, helpers::utils::calculate_avg_cpu, helpers::memory, helpers::network};
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
