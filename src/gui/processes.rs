@@ -9,7 +9,7 @@ use ratatui::{
 use crate::App;
 
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
-    // Split the area into main table and detail panel
+    // Splitto in main e detail panel
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
