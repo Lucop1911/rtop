@@ -93,7 +93,6 @@ impl App {
             }
         }
 
-
         // Controllo click su una riga
         if self.page == Page::Processes && self.table_area.contains((x, y).into()) {
             let row_offset = 3;
