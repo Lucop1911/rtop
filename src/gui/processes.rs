@@ -1,118 +1,52 @@
-use ratatui::{
-    Frame,
-    layout::{Constraint, Rect},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
-};
+use std::collections::HashMap;
+use sysinfo::Pid;
 
-use crate::{App, SortColumn};
+use crate::{App, ProcessInfo};
 
-pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
-    app.table_area = area;
+impl App {
+    pub fn build_process_tree(&mut self) {
+        // Remember selection before rebuilding
+        self.remember_selection();
 
-    app.header_area = Rect {
-        x: area.x,
-        y: area.y,
-        width: area.width,
-        height: 3,
-    };
+        let mut process_infos: HashMap<Pid, ProcessInfo> = HashMap::new();
+        let mut children_map: HashMap<Pid, Vec<Pid>> = HashMap::new();
 
-    let flat_processes = app.flatten_processes();
+        // Pre-allocate with estimated capacity
+        let process_count = self.system.processes().len();
+        process_infos.reserve(process_count);
 
-    let sort_indicator = if app.reverse_sort { "▼" } else { "▲" };
-    let header_cells = vec![
-        Cell::from(if app.sort_column == SortColumn::Pid {
-            format!("PID {}", sort_indicator)
-        } else {
-            "PID".to_string()
-        }),
-        Cell::from(if app.sort_column == SortColumn::Name {
-            format!("Name {}", sort_indicator)
-        } else {
-            "Name".to_string()
-        }),
-        Cell::from(if app.sort_column == SortColumn::Cpu {
-            format!("CPU% {}", sort_indicator)
-        } else {
-            "CPU%".to_string()
-        }),
-        Cell::from(if app.sort_column == SortColumn::Memory {
-            format!("Memory {}", sort_indicator)
-        } else {
-            "Memory".to_string()
-        }),
-    ]
-    .into_iter()
-    .map(|c| {
-        c.style(
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        )
-    });
+        // Collect all process information
+        for (pid, process) in self.system.processes() {
+            let info = ProcessInfo {
+                pid: *pid,
+                name: process.name().to_string_lossy().to_string(),
+                cpu_usage: process.cpu_usage(),
+                memory: process.memory(),
+            };
+            process_infos.insert(*pid, info);
 
-    let header = Row::new(header_cells).height(1).bottom_margin(1);
-
-    // Calculate visible area
-    let visible_rows = area.height.saturating_sub(4) as usize;
-    let start = app.viewport_offset.min(flat_processes.len().saturating_sub(1));
-    let end = (start + visible_rows).min(flat_processes.len());
-    
-    // Only render visible rows
-    let visible_processes = &flat_processes[start..end];
-
-    let rows = visible_processes.iter().map(|(depth, node)| {
-        let indent = "  ".repeat(*depth);
-        let prefix = if !node.children.is_empty() {
-            if node.expanded { "▼ " } else { "▶ " }
-        } else {
-            "  "
-        };
-
-        let cells = vec![
-            Cell::from(node.info.pid.to_string()),
-            Cell::from(format!("{}{}{}", indent, prefix, node.info.name)),
-            Cell::from(format!("{:.1}", node.info.cpu_usage)),
-            Cell::from(format!(
-                "{:.1} MB",
-                node.info.memory as f64 / 1024.0 / 1024.0
-            )),
-        ];
-        Row::new(cells).height(1)
-    });
-
-    let widths = [
-        Constraint::Length(10),
-        Constraint::Percentage(50),
-        Constraint::Length(12),
-        Constraint::Length(15),
-    ];
-
-    let title = if app.search_mode {
-        format!("Processes [Searching: {}]", app.search_query)
-    } else {
-        format!(
-            "Processes ({} shown) - Double-click headers to sort, double-click rows to expand",
-            flat_processes.len()
-        )
-    };
-
-    let table = Table::new(rows, widths)
-        .header(header)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .row_highlight_style(
-            Style::default()
-                .bg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        );
-
-    // Adjust table state to show relative position within viewport
-    let mut adjusted_state = TableState::default();
-    if let Some(selected) = app.table_state.selected() {
-        if selected >= start && selected < end {
-            adjusted_state.select(Some(selected - start));
+            // Build parent-child relationships
+            if let Some(parent_pid) = process.parent() {
+                children_map
+                    .entry(parent_pid)
+                    .or_insert_with(Vec::new)
+                    .push(*pid);
+            }
         }
-    }
 
-    f.render_stateful_widget(table, area, &mut adjusted_state);
+        // Show all processes as roots (flat structure)
+        let mut roots = Vec::with_capacity(process_count);
+        for (pid, _info) in &process_infos {
+            roots.push(self.build_node(*pid, &process_infos, &children_map));
+        }
+
+        self.sort_processes(&mut roots);
+        self.processes = roots;
+
+        // Invalidate cache after rebuilding tree
+        self.cached_flat_processes = None;
+
+        // Restore selection to same PID
+        self.restore_selection();
+    }
 }

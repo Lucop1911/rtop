@@ -71,7 +71,8 @@ struct App {
     header_area: Rect,
     selected_pid: Option<Pid>,
     update_interval: Duration,
-    viewport_offset: usize,  // Track the top of the visible area
+    viewport_offset: usize,
+    cached_flat_processes: Option<Vec<(usize, usize)>>,  // Cache for flattened process list
 }
 
 impl App {
@@ -105,6 +106,7 @@ impl App {
             selected_pid: None,
             update_interval: Duration::from_millis(1000),
             viewport_offset: 0,
+            cached_flat_processes: None,
         };
 
         app.build_process_tree();

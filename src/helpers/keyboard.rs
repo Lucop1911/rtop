@@ -9,15 +9,18 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Esc => {
                 app.search_mode = false;
                 app.search_query.clear();
+                app.cached_flat_processes = None;  // Invalidate cache
             }
             KeyCode::Enter => {
                 app.search_mode = false;
             }
             KeyCode::Char(c) => {
                 app.search_query.push(c);
+                app.cached_flat_processes = None;  // Invalidate cache on search change
             }
             KeyCode::Backspace => {
                 app.search_query.pop();
+                app.cached_flat_processes = None;  // Invalidate cache on search change
             }
             _ => {}
         }
