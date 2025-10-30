@@ -23,6 +23,12 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
         }
     } else {
         match code {
+            KeyCode::Up => {
+                app.select_prev();
+            }
+            KeyCode::Down => {
+                app.select_next();
+            }
             KeyCode::Char('c') | KeyCode::Char('C') if modifiers.contains(KeyModifiers::CONTROL) => {
                 return Ok(true);
             }
