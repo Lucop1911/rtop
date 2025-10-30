@@ -49,10 +49,10 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Enter | KeyCode::Char(' ') => {
                 app.toggle_expand();
             }
-            KeyCode::Char('g') => {
+            KeyCode::Char('g') | KeyCode::Char('G') => {
                 app.go_to_top();
             }
-            KeyCode::Char('G') if modifiers.contains(KeyModifiers::SHIFT) => {
+            KeyCode::Char('h') | KeyCode::Char('H') => {
                 app.go_to_bottom();
             }
             KeyCode::Char('p') => {
@@ -84,12 +84,6 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 // Decrease update frequency
                 let new_interval = app.update_interval + Duration::from_millis(100);
                 app.update_interval = new_interval.min(Duration::from_millis(5000));
-            }
-            KeyCode::PageDown | KeyCode::Char('d') if modifiers.contains(KeyModifiers::CONTROL) => {
-                app.page_down();
-            }
-            KeyCode::PageUp | KeyCode::Char('u') if modifiers.contains(KeyModifiers::CONTROL) => {
-                app.page_up();
             }
             KeyCode::Home => {
                 app.go_to_top();

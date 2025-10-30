@@ -92,31 +92,6 @@ impl App {
         }
     }
 
-    pub fn page_down(&mut self) {
-        let flat = self.flatten_processes();
-        if !flat.is_empty() {
-            let visible_rows = self.table_area.height.saturating_sub(4) as usize;
-            let i = self
-                .table_state
-                .selected()
-                .map_or(0, |i| (i + visible_rows).min(flat.len() - 1));
-            self.table_state.select(Some(i));
-            self.ensure_visible(i);
-        }
-    }
-
-    pub fn page_up(&mut self) {
-        if !self.flatten_processes().is_empty() {
-            let visible_rows = self.table_area.height.saturating_sub(4) as usize;
-            let i = self
-                .table_state
-                .selected()
-                .map_or(0, |i| i.saturating_sub(visible_rows));
-            self.table_state.select(Some(i));
-            self.ensure_visible(i);
-        }
-    }
-
     // Ensure the selected item is visible in the viewport
     pub fn ensure_visible(&mut self, index: usize) {
         let visible_rows = self.table_area.height.saturating_sub(4) as usize;
@@ -145,6 +120,30 @@ impl App {
             self.table_state.select(Some(last_idx));
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             self.viewport_offset = last_idx.saturating_sub(visible_rows - 1);
+        }
+    }
+
+    // Remember selected process PID
+    pub fn remember_selection(&mut self) {
+        self.selected_pid = self.table_state.selected().and_then(|idx| {
+            let flat = self.flatten_processes();
+            flat.get(idx).map(|(_, node)| node.info.pid)
+        });
+    }
+
+    // Restore selection after rebuild - find the PID but don't change viewport
+    pub fn restore_selection(&mut self) {
+        if let Some(pid) = self.selected_pid {
+            let flat = self.flatten_processes();
+            if let Some(new_idx) = flat.iter().position(|(_, node)| node.info.pid == pid) {
+                // Update selection index without forcing viewport to follow
+                self.table_state.select(Some(new_idx));
+            } else if !flat.is_empty() {
+                // Process no longer exists, select first item and reset viewport
+                self.table_state.select(Some(0));
+                self.viewport_offset = 0;
+                self.selected_pid = None;
+            }
         }
     }
 }

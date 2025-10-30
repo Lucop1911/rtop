@@ -17,14 +17,14 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     } else {
         let update_ms = app.update_interval.as_millis();
         vec![Line::from(vec![
-            ratatui::text::Span::raw("F1/1: Processes | F2/2: Stats | /: Search | K/Del: Kill | R: Refresh | Space/Enter: Expand | "),
-            ratatui::text::Span::raw("↑↓/jk: Navigate | g/G: Top/Bottom | PgUp/PgDn | "),
+            ratatui::text::Span::raw("1: Processes | 2: Stats | /: Search | K: Kill | R: Refresh | Space/Enter: Expand | "),
+            ratatui::text::Span::raw("↑↓: Navigate | g/h: Top/Bottom | "),
             ratatui::text::Span::raw("p/n/c/m: Sort | +/-: Speed ("),
             ratatui::text::Span::styled(
                 format!("{}ms", update_ms),
                 Style::default().fg(Color::Yellow)
             ),
-            ratatui::text::Span::raw(") | q/ESC: Exit"),
+            ratatui::text::Span::raw(") | q: Exit"),
         ])]
     };
 

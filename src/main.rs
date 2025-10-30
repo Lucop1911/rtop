@@ -155,30 +155,6 @@ impl App {
             self.build_process_tree();
         }
     }
-
-    // Remember selected process PID
-    fn remember_selection(&mut self) {
-        self.selected_pid = self.table_state.selected().and_then(|idx| {
-            let flat = self.flatten_processes();
-            flat.get(idx).map(|(_, node)| node.info.pid)
-        });
-    }
-
-    // Restore selection after rebuild - find the PID but don't change viewport
-    fn restore_selection(&mut self) {
-        if let Some(pid) = self.selected_pid {
-            let flat = self.flatten_processes();
-            if let Some(new_idx) = flat.iter().position(|(_, node)| node.info.pid == pid) {
-                // Update selection index without forcing viewport to follow
-                self.table_state.select(Some(new_idx));
-            } else if !flat.is_empty() {
-                // Process no longer exists, select first item and reset viewport
-                self.table_state.select(Some(0));
-                self.viewport_offset = 0;
-                self.selected_pid = None;
-            }
-        }
-    }
 }
 
 fn main() -> Result<()> {
