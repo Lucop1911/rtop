@@ -12,13 +12,13 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(5), // CPU gauge
-            Constraint::Length(5), // Memory gauge
-            Constraint::Min(3),    // Network info
+            Constraint::Length(5), // Utilizzo CPU
+            Constraint::Length(5), // Utilizzo memoria
+            Constraint::Min(3),    // Utilizzo rete
         ])
         .split(area);
 
-    // --- Overall CPU Usage ---
+    // --- CPU ---
     let avg_cpu: f32 = calculate_avg_cpu(app);
 
     let cpu_gauge = Gauge::default()
@@ -32,7 +32,7 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(cpu_gauge, chunks[0]);
 
-    // --- Memory Usage ---
+    // --- RAM ---
     let (used_mem, total_mem, mem_percent) = memory::calculate_memory(app);
 
     let mem_gauge = Gauge::default()
@@ -47,7 +47,7 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(mem_gauge, chunks[1]);
 
-    // --- Network Usage ---
+    // --- Rete ---
     let (total_rx, total_tx) = network::calculate_network_totals(app);
 
     let net_info: Vec<Line> = network::per_interface_info(app)

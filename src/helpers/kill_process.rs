@@ -9,7 +9,7 @@ impl App {
                 if let Some(process) = self.system.process(pid) {
                     process.kill();
                 }
-                // Immediate refresh to show the process is gone
+                // Refresh immediato
                 self.force_refresh();
             }
         }

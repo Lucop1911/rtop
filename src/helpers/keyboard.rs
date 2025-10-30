@@ -9,34 +9,31 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Esc => {
                 app.search_mode = false;
                 app.search_query.clear();
-                app.cached_flat_processes = None;  // Invalidate cache
+                app.cached_flat_processes = None;  // Invalida la cache
                 app.force_refresh();
             }
             KeyCode::Enter => {
                 app.search_mode = false;
-                // Find and select first matching process
-                app.select_first_matching();
+                app.select_first_matching(); // Becca il primo match
             }
             KeyCode::Char(c) => {
                 app.search_query.push(c);
-                app.cached_flat_processes = None;  // Invalidate cache on search change
+                app.cached_flat_processes = None;  // Invalida la cache
                 app.force_refresh();
-                // Auto-select first match as user types
                 app.select_first_matching();
             }
             KeyCode::Backspace => {
                 app.search_query.pop();
-                app.cached_flat_processes = None;  // Invalidate cache on search change
+                app.cached_flat_processes = None;  // Invalida la cache
                 app.force_refresh();
-                // Auto-select first match as user deletes
+                // Auto seleziona primo match quanto l'utente elimina caratteri
                 app.select_first_matching();
             }
+            // Navigazione durante la ricerca
             KeyCode::Down => {
-                // Allow navigation while searching
                 app.select_next();
             }
             KeyCode::Up => {
-                // Allow navigation while searching
                 app.select_prev();
             }
             _ => {}

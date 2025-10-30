@@ -23,12 +23,12 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let flat = app.flatten_processes().clone();
     let visible_rows = chunks[0].height.saturating_sub(4) as usize;
     
-    // Calculate visible range
+    // Range visibile
     let start = app.viewport_offset;
     let end = (start + visible_rows).min(flat.len());
     let visible_processes = &flat[start..end];
 
-    // Calculate line number width (max 5 digits)
+    // Spazio per il line number 
     let max_line_num = flat.len();
     let line_num_width = max_line_num.to_string().len().max(3) as u16;
 
@@ -39,6 +39,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             let actual_idx = start + i;
             let node = app.get_process_at_flat_index(actual_idx).unwrap();
             
+            // Indicatori espansione nodo
             let indent = "  ".repeat(*depth);
             let expand_indicator = if !node.children.is_empty() {
                 if node.expanded { "▼ " } else { "▶ " }
@@ -54,7 +55,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
                 Style::default()
             };
 
-            // Line number in first column
+            // Numero linea nella colonna 1
             let line_num = format!("{:>width$}", actual_idx + 1, width = line_num_width as usize);
 
             Row::new(vec![
@@ -88,7 +89,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             .title(format!("Processes ({}/{})", flat.len(), app.system.processes().len())),
     );
 
-    // Store header area for mouse clicks
+    // Salvo la zona dell'header per gestire i click del mouse dopo
     app.header_area = Rect {
         x: chunks[0].x,
         y: chunks[0].y,
@@ -97,8 +98,6 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     };
 
     f.render_widget(table, chunks[0]);
-
-    // Draw detail panel
     draw_detail_panel(f, app, chunks[1]);
 }
 
@@ -135,7 +134,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         if let Some(proc) = process {
             lines.push(Line::from(""));
             
-            // Parent PID
+            // PID genitore
             if let Some(parent_pid) = proc.parent() {
                 lines.push(Line::from(vec![
                     Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
@@ -143,19 +142,19 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 ]));
             }
 
-            // Status
+            // Stato
             lines.push(Line::from(vec![
                 Span::styled("Status: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{:?}", proc.status())),
             ]));
 
-            // Virtual memory
+            // V RAM
             lines.push(Line::from(vec![
                 Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{:.2} MB", proc.virtual_memory() as f64 / 1024.0 / 1024.0)),
             ]));
 
-            // Disk usage
+            // Disco
             let disk_usage = proc.disk_usage();
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -196,7 +195,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 lines.push(Line::from(cmd));
             }
 
-            // Children count
+            // Numero children 
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("Children: ", Style::default().fg(Color::Cyan)),

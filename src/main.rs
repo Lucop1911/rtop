@@ -20,9 +20,10 @@ use std::{
     collections::HashMap,
     io,
     time::{Duration, Instant},
+    sync::{Arc, Mutex},
+    thread,
 };
 use sysinfo::{Networks, Pid, System};
-
 
 #[derive(PartialEq, Clone, Copy)]
 enum SortColumn {
@@ -71,7 +72,7 @@ struct App {
     header_area: Rect,
     update_interval: Duration,
     viewport_offset: usize,
-    cached_flat_processes: Option<Vec<(usize, usize)>>,  // Cache for flattened process list
+    cached_flat_processes: Option<Vec<(usize, usize)>>,
 }
 
 impl App {
@@ -112,48 +113,43 @@ impl App {
         app
     }
 
-    fn update(&mut self) {
-        if self.last_update.elapsed() >= self.update_interval {
-            // Quick refresh - only what's needed
-            self.system.refresh_cpu_all();
-            self.system.refresh_memory();
+    fn refresh(&mut self) {
+        self.system.refresh_cpu_all();
+        self.system.refresh_memory();
 
-            use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
-            let mut system = System::new_all();
+        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
+        self.system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing()
+                .with_cpu()
+                .with_memory(),
+        );
 
-            system.refresh_processes_specifics(
-                ProcessesToUpdate::All,
-                true,
-                ProcessRefreshKind::nothing()
-                    .with_cpu()
-                    .with_memory(),
-            );
+        self.networks.refresh(true);
 
-            self.networks.refresh(true);
-
-            // Update CPU history
-            for (i, cpu) in self.system.cpus().iter().enumerate() {
-                if i >= self.cpu_history.len() {
-                    self.cpu_history.push(Vec::new());
-                }
-                self.cpu_history[i].push(cpu.cpu_usage());
-                if self.cpu_history[i].len() > 60 {
-                    self.cpu_history[i].remove(0);
-                }
+        // Aggiorna CPU history
+        for (i, cpu) in self.system.cpus().iter().enumerate() {
+            if i >= self.cpu_history.len() {
+                self.cpu_history.push(Vec::new());
             }
-
-            // Update network history
-            let (rx, tx) = self.networks.iter().fold((0, 0), |(rx, tx), (_, net)| {
-                (rx + net.received(), tx + net.transmitted())
-            });
-            self.network_history.push((rx, tx));
-            if self.network_history.len() > 60 {
-                self.network_history.remove(0);
+            self.cpu_history[i].push(cpu.cpu_usage());
+            if self.cpu_history[i].len() > 60 {
+                self.cpu_history[i].remove(0);
             }
-
-            self.last_update = Instant::now();
-            self.build_process_tree();
         }
+
+        // Aggiorna network history
+        let (rx, tx) = self.networks.iter().fold((0, 0), |(rx, tx), (_, net)| {
+            (rx + net.received(), tx + net.transmitted())
+        });
+        self.network_history.push((rx, tx));
+        if self.network_history.len() > 60 {
+            self.network_history.remove(0);
+        }
+
+        self.last_update = Instant::now();
+        self.build_process_tree();
     }
 }
 
@@ -164,8 +160,23 @@ fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::new();
-    let res = run_app(&mut terminal, &mut app);
+    let app = Arc::new(Mutex::new(App::new()));
+
+    // Uso un thread per miglior performance
+    let app_bg = Arc::clone(&app);
+    thread::spawn(move || {
+        loop {
+            // lock, refresh, get interval, unlock, then sleep
+            let sleep_duration = {
+                let mut app = app_bg.lock().unwrap();
+                app.refresh();
+                app.update_interval
+            };
+            thread::sleep(sleep_duration);
+        }
+    });
+
+    let res = run_app(&mut terminal, Arc::clone(&app));
 
     disable_raw_mode()?;
     execute!(
@@ -182,25 +193,31 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: Arc<Mutex<App>>,
+) -> Result<()> {
     loop {
-        app.update();
-        terminal.draw(|f| ui(f, app))?;
+        {
+            let mut app_guard = app.lock().unwrap();
+            terminal.draw(|f| ui(f, &mut app_guard))?;
+        }
 
-        // Use shorter poll time for more responsive UI
         if event::poll(Duration::from_millis(50))? {
             match event::read()? {
                 Event::Key(key) => {
-                    if handle_key_event(app, key.code, key.modifiers)? {
+                    let mut app_guard = app.lock().unwrap();
+                    if handle_key_event(&mut app_guard, key.code, key.modifiers)? {
                         return Ok(());
                     }
                 }
                 Event::Mouse(mouse) => {
-                    handle_mouse(app, mouse.kind, mouse.column, mouse.row);
+                    let mut app_guard = app.lock().unwrap();
+                    handle_mouse(&mut app_guard, mouse.kind, mouse.column, mouse.row);
                 }
                 Event::Resize(_, _) => {
-                    // Force redraw on resize
-                    terminal.draw(|f| ui(f, app))?;
+                    let mut app_guard = app.lock().unwrap();
+                    terminal.draw(|f| ui(f, &mut app_guard))?;
                 }
                 _ => {}
             }

@@ -18,12 +18,11 @@ impl App {
 
         self.networks.refresh(true);
         self.build_process_tree();
-        // Invalidate cache after refresh
         self.cached_flat_processes = None;
     }
 
     pub fn flatten_processes(&mut self) -> &Vec<(usize, usize)> {
-        // Return cached result if available
+        // Se esiste, returna i valori della cache
         if self.cached_flat_processes.is_none() {
             let mut result = Vec::with_capacity(self.processes.len() * 2);
             for (idx, node) in self.processes.iter().enumerate() {
@@ -41,13 +40,13 @@ impl App {
         depth: usize,
         result: &mut Vec<(usize, usize)>,
     ) {
-        // Apply search filter
+        // Filtro
         if !self.search_query.is_empty() {
             let query_lower = self.search_query.to_lowercase();
             let name_lower = node.info.name.to_lowercase();
             let pid_str = node.info.pid.to_string();
             
-            // Search by name or PID
+            // Cerca per nome o PID
             if !name_lower.contains(&query_lower) && !pid_str.contains(&self.search_query) {
                 return;
             }
@@ -74,12 +73,11 @@ impl App {
     pub fn toggle_expand(&mut self) {
         if let Some(selected) = self.table_state.selected() {
             if let Some(node) = self.get_process_at_flat_index(selected) {
-                // Only toggle if process has children
                 if !node.children.is_empty() {
                     let pid = node.info.pid;
                     let expanded = self.expanded_pids.get(&pid).copied().unwrap_or(false);
                     self.expanded_pids.insert(pid, !expanded);
-                    // Invalidate cache when expanding/collapsing
+                    // Invalida cache quando espande o comprime i nodi
                     self.cached_flat_processes = None;
                     self.force_refresh();
                 }
@@ -111,27 +109,23 @@ impl App {
         }
     }
 
-    // Ensure the selected item is visible in the viewport
+    // Assicura che l'oggetto sia visibile nel viewport
     pub fn ensure_visible(&mut self, index: usize) {
         let visible_rows = self.table_area.height.saturating_sub(4) as usize;
-        
-        // If selected item is above viewport, scroll up
+
         if index < self.viewport_offset {
             self.viewport_offset = index;
         }
-        // If selected item is below viewport, scroll down
         else if index >= self.viewport_offset + visible_rows {
             self.viewport_offset = index.saturating_sub(visible_rows - 1);
         }
     }
 
-    // Go to top - resets viewport
     pub fn go_to_top(&mut self) {
         self.table_state.select(Some(0));
         self.viewport_offset = 0;
     }
 
-    // Go to bottom - scrolls viewport to bottom
     pub fn go_to_bottom(&mut self) {
         let flat_len = self.flatten_processes().len();
         if flat_len > 0 {
@@ -142,7 +136,6 @@ impl App {
         }
     }
 
-    // Page down
     pub fn page_down(&mut self) {
         let flat_len = self.flatten_processes().len();
         if flat_len > 0 {
@@ -154,7 +147,6 @@ impl App {
         }
     }
 
-    // Page up
     pub fn page_up(&mut self) {
         let flat_len = self.flatten_processes().len();
         if flat_len > 0 {
@@ -166,41 +158,12 @@ impl App {
         }
     }
 
-    // Select first matching process in search results
     pub fn select_first_matching(&mut self) {
         let flat = self.flatten_processes();
         if !flat.is_empty() {
-            // First matching process is at index 0 after filtering
             self.table_state.select(Some(0));
             self.viewport_offset = 0;
         } else {
-            // No matches
-            self.table_state.select(None);
-        }
-    }
-
-    // Remember selected line position (not PID)
-    pub fn remember_selection(&mut self) {
-        // We don't need to remember anything - selection stays at the same line number
-    }
-
-    // Restore selection after rebuild - keep same line number
-    pub fn restore_selection(&mut self) {
-        let flat_len = self.flatten_processes().len();
-        if flat_len > 0 {
-            // Keep the current selection index, but clamp it to valid range
-            if let Some(current_idx) = self.table_state.selected() {
-                if current_idx >= flat_len {
-                    // If the selected line no longer exists (list got shorter), select last item
-                    self.table_state.select(Some(flat_len - 1));
-                }
-                // Otherwise keep the same line number selected
-            } else {
-                // No selection, select first item
-                self.table_state.select(Some(0));
-            }
-        } else {
-            // No processes in list
             self.table_state.select(None);
         }
     }

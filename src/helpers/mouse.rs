@@ -31,14 +31,14 @@ impl App {
 
         self.last_click = Some((now, x, y));
 
-        // Check if clicking on header for sorting
+        // Controllo click sull'header
         if self.page == Page::Processes && self.header_area.contains((x, y).into()) {
             let header_y = self.header_area.y + 1;
             if y == header_y {
                 let table_width = self.header_area.width.saturating_sub(2);
                 let relative_x = x.saturating_sub(self.header_area.x + 1);
 
-                // Same constraints as used in draw_processes
+                // Stessi constraints di draw_processes.rs
                 let constraints = [
                     Constraint::Length(10),
                     Constraint::Percentage(50),
@@ -46,7 +46,7 @@ impl App {
                     Constraint::Length(15),
                 ];
 
-                // Compute column widths in actual characters
+                // Spazio colonna -> caratteri
                 let mut widths = vec![];
                 let mut remaining = table_width;
                 for c in constraints {
@@ -59,7 +59,6 @@ impl App {
                     remaining = remaining.saturating_sub(w);
                 }
 
-                // Build cumulative edges
                 let mut col_edges = Vec::new();
                 let mut start = 0;
                 for w in &widths {
@@ -67,7 +66,7 @@ impl App {
                     start += *w;
                 }
 
-                // Now match the click position to the correct range
+                // Posizione -> range
                 let new_column = if relative_x < col_edges[0].1 {
                     Some(SortColumn::Pid)
                 } else if relative_x < col_edges[1].1 {
@@ -95,7 +94,7 @@ impl App {
         }
 
 
-        // Check if clicking on process rows
+        // Controllo click su una riga
         if self.page == Page::Processes && self.table_area.contains((x, y).into()) {
             let row_offset = 3;
             if y >= self.table_area.y + row_offset {
