@@ -67,9 +67,7 @@ Then replace the existing binary in your installation path.
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the **Apache License 2.0**.
 See [LICENSE](LICENSE) for details.
-
-```
