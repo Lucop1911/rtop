@@ -17,9 +17,9 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     } else {
         let update_ms = app.update_interval.as_millis();
         vec![Line::from(vec![
-            ratatui::text::Span::raw("1: Processes | 2: Stats | /: Search | K: Kill | R: Refresh | Space/Enter: Expand | "),
-            ratatui::text::Span::raw("↑↓/PgUp/PgDn: Navigate | g/h: Top/Bottom | "),
-            ratatui::text::Span::raw("p/n/c/m: Sort | +/-: Speed ("),
+            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | K: Kill | R: Refresh | Space/Enter: Expand | "),
+            ratatui::text::Span::raw("t/b: Top/Bottom | "),
+            ratatui::text::Span::raw("+/-: Speed ("),
             ratatui::text::Span::styled(
                 format!("{}ms", update_ms),
                 Style::default().fg(Color::Yellow)
@@ -30,7 +30,7 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
 
     let footer = Paragraph::new(text)
         .block(Block::default().borders(Borders::ALL))
-        .alignment(ratatui::layout::Alignment::Left)
+        .alignment(ratatui::layout::Alignment::Center)
         .style(Style::default().fg(Color::Cyan));
 
     f.render_widget(footer, area);

@@ -1,5 +1,5 @@
 use crate::App;
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use crossterm::event::{KeyCode, KeyModifiers};
 use std::time::Duration;
 
@@ -49,13 +49,32 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char('c') | KeyCode::Char('C') if modifiers.contains(KeyModifiers::CONTROL) => {
                 return Ok(true);
             }
-            KeyCode::Char('q') | KeyCode::Char('Q') => return Ok(true),
-            KeyCode::Esc => return Ok(true),
+            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                return Ok(true)
+            },
+            KeyCode::Esc => {
+                if app.page != crate::Page::Help {
+                    return Ok(true);
+                } else {
+                    app.page = crate::Page::Processes;
+                }
+            }
             KeyCode::F(1) | KeyCode::Char('1') => {
                 app.page = crate::Page::Processes;
             }
             KeyCode::F(2) | KeyCode::Char('2') => {
-                app.page = crate::Page::SystemStats;
+                if app.page != crate::Page::SystemStats {
+                    app.page = crate::Page::SystemStats;
+                } else {
+                    app.page = crate::Page::Processes;
+                }
+            }
+            KeyCode::F(3) | KeyCode::Char('3') | KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
+                if app.page != crate::Page::Help {
+                    app.page = crate::Page::Help
+                } else {
+                    app.page = crate::Page::Processes;
+                }
             }
             KeyCode::Char('f') | KeyCode::Char('F') if modifiers.contains(KeyModifiers::CONTROL) => {
                 app.search_mode = true;
@@ -72,10 +91,10 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Enter | KeyCode::Char(' ') => {
                 app.toggle_expand();
             }
-            KeyCode::Char('g') | KeyCode::Char('G') => {
+            KeyCode::Char('t') | KeyCode::Char('T') => {
                 app.go_to_top();
             }
-            KeyCode::Char('h') | KeyCode::Char('H') => {
+            KeyCode::Char('b') | KeyCode::Char('B') => {
                 app.go_to_bottom();
             }
             KeyCode::Char('p') => {
@@ -107,12 +126,6 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 // Decrease update frequency
                 let new_interval = app.update_interval + Duration::from_millis(100);
                 app.update_interval = new_interval.min(Duration::from_millis(5000));
-            }
-            KeyCode::Home => {
-                app.go_to_top();
-            }
-            KeyCode::End => {
-                app.go_to_bottom();
             }
             KeyCode::PageDown => {
                 app.page_down();

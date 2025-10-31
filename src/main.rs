@@ -37,6 +37,7 @@ enum SortColumn {
 enum Page {
     Processes,
     SystemStats,
+    Help,
 }
 
 #[derive(Clone)]

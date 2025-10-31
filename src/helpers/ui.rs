@@ -5,7 +5,7 @@ use ratatui::{
 
 use crate::{
     App, Page,
-    gui::{footer::draw_footer, processes::draw_processes, stats::draw_stats},
+    gui::{footer::draw_footer, help::draw_help, processes::draw_processes, stats::draw_stats},
 };
 
 pub fn ui(f: &mut Frame, app: &mut App) {
@@ -17,6 +17,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     match app.page {
         Page::Processes => draw_processes(f, app, chunks[0]),
         Page::SystemStats => draw_stats(f, app, chunks[0]),
+        Page::Help => draw_help(f, app, chunks[0]),
     }
 
     draw_footer(f, app, chunks[1]);
