@@ -3,7 +3,7 @@ name = "rtop"
 version = "0.1.0"
 edition = "2024"
 description = "An htop like TUI built with rust ratatui"
-license = ""
+license = "Apache-2.0"
 repository = "https://github.com/Lucop1911/rtop"
 
 [dependencies]
@@ -11,9 +11,6 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 sysinfo = "0.37.2"
 anyhow = "1.0"
-
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1"
 
 [profile.release]
 opt-level = "s"
@@ -23,17 +20,6 @@ panic = "abort"
 strip = true
 debug = false
 overflow-checks = false
-
-[build-dependencies]
-winres = "0.1"
-
-[package.metadata.winres]
-ProductName = "rtop"
-FileDescription = "htop like TUI built with rust"
-LegalCopyright = "Copyright (c) 2025"
-ProductVersion = "1.0.0"
-FileVersion = "1.0.0"
-
 
 [package.metadata.bundle]
 name = "rtop"
