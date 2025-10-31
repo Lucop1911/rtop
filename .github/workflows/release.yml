@@ -40,16 +40,17 @@ jobs:
         run: cargo build --release
 
       # Step 5: Package the binary
-      - name: Package binary
+      - name: Package the binary
         run: |
           mkdir -p dist
           cp target/release/rtop dist/
-          tar czvf rtop-${{ github.ref_name }}-linux.tar.gz -C dist rtop
+          tar czvf dist/rtop-linux.tar.gz -C dist rtop
+
 
       # Step 6: Upload to GitHub Releases
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v1.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -63,7 +64,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/rtop-${{ github.ref_name }}-linux.tar.gz
-          asset_name: rtop-${{ github.ref_name }}-linux.tar.gz
+          asset_path: dist/rtop-linux.tar.gz
+          asset_name: rtop-linux.tar.gz
           asset_content_type: application/gzip
