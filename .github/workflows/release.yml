@@ -1,38 +1,31 @@
 name: Build & Release
 
-# Manual trigger only
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g., v1.0.0)'
+        description: "Release tag (e.g. v1.0.0)"
         required: true
-        default: 'v1.0.0'
 
-# Ensure GITHUB_TOKEN has write permission to create releases
 permissions:
   contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Build Rust TUI
 
     steps:
-      # Step 1: Checkout repository
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Step 2: Install Rust
-      - name: Set up Rust
+      - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           override: true
 
-      # Step 3: Cache cargo dependencies
-      - name: Cache cargo registry
+      - name: Cache cargo deps
         uses: actions/cache@v3
         with:
           path: |
@@ -42,36 +35,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      # Step 4: Build release binary
       - name: Build release
         run: cargo build --release
 
-      # Step 5: Package binary
       - name: Package binary
         run: |
           mkdir -p dist
           cp target/release/rtop dist/
           tar czvf dist/rtop-linux.tar.gz -C dist rtop
 
-      # Step 6: Create GitHub release
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1.2.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish release
+        uses: softprops/action-gh-release@v1
         with:
+          files: dist/rtop-linux.tar.gz
           tag_name: ${{ github.event.inputs.tag }}
-          release_name: ${{ github.event.inputs.tag }}
-          draft: false
-          prerelease: false
-
-      # Step 7: Upload the release asset
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/rtop-linux.tar.gz
-          asset_name: rtop-linux.tar.gz
-          asset_content_type: application/gzip
