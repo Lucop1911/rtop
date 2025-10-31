@@ -63,18 +63,10 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 app.page = crate::Page::Processes;
             }
             KeyCode::F(2) | KeyCode::Char('2') => {
-                if app.page != crate::Page::SystemStats {
-                    app.page = crate::Page::SystemStats;
-                } else {
-                    app.page = crate::Page::Processes;
-                }
+                app.page = crate::Page::SystemStats;
             }
             KeyCode::F(3) | KeyCode::Char('3') | KeyCode::Char('h') | KeyCode::Char('H') | KeyCode::Char('?') => {
-                if app.page != crate::Page::Help {
-                    app.page = crate::Page::Help
-                } else {
-                    app.page = crate::Page::Processes;
-                }
+                app.page = crate::Page::Help
             }
             KeyCode::Char('f') | KeyCode::Char('F') if modifiers.contains(KeyModifiers::CONTROL) => {
                 app.search_mode = true;
