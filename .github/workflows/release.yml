@@ -4,20 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v1.0.0)"
+        description: "Release tag (e.g., v1.0.0)"
         required: true
 
 permissions:
-  contents: write
+  contents: write  # Required to create releases and upload assets
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # Step 2: Set up Rust
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -25,7 +27,8 @@ jobs:
           profile: minimal
           override: true
 
-      - name: Cache cargo deps
+      # Step 3: Cache cargo dependencies
+      - name: Cache cargo registry
         uses: actions/cache@v3
         with:
           path: |
@@ -35,19 +38,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      # Step 4: Build the release binary
       - name: Build release
         run: cargo build --release
 
-      - name: Package binary
+      # Step 5: Package the binary
+      - name: Package Linux binary
         run: |
           mkdir -p dist
           cp target/release/rtop dist/
           tar czvf dist/rtop-linux.tar.gz -C dist rtop
 
-      - name: Publish release
+      # Step 6: Create GitHub release and upload the binary
+      - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/rtop-linux.tar.gz
           tag_name: ${{ github.event.inputs.tag }}
+          files: dist/rtop-linux.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
