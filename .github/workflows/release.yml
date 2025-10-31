@@ -42,18 +42,17 @@ jobs:
       - name: Build release
         run: cargo build --release
 
-      # Step 5: Package the binary
-      - name: Package Linux binary
+      # Step 5: Copy the binary to dist folder
+      - name: Prepare binary
         run: |
           mkdir -p dist
-          cp target/release/rtop dist/
-          tar czvf dist/rtop-linux.tar.gz -C dist rtop
+          cp target/release/rtop dist/rtop
 
       # Step 6: Create GitHub release and upload the binary
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.tag }}
-          files: dist/rtop-linux.tar.gz
+          files: dist/rtop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
