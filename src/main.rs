@@ -200,11 +200,12 @@ fn run_app<B: Backend>(
 ) -> Result<()> {
     loop {
         {
-            let mut app_guard = app.lock().unwrap();
-            terminal.draw(|f| ui(f, &mut app_guard))?;
+            let mut app_guard = app.lock().unwrap(); // Blocco l'app per non avere accessi concorrenti
+            terminal.draw(|f| ui(f, &mut app_guard))?; // Ridisegno l'ui
         }
-
-        if event::poll(Duration::from_millis(50))? {
+        
+        // Se non ci sono eventi per 50ms ridisegna l'ui, se ci sono li gestisce
+        if event::poll(Duration::from_millis(50))? { 
             match event::read()? {
                 Event::Key(key) => {
                     let mut app_guard = app.lock().unwrap();
