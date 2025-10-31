@@ -6,15 +6,14 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Row, Table},
 };
 
-use crate::App;
+use crate::{App, SortColumn, InputMode};
 
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
-    // Splitto in main e detail panel
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(70),  // Process table
-            Constraint::Percentage(30),  // Detail panel
+            Constraint::Percentage(70),
+            Constraint::Percentage(30),
         ])
         .split(area);
 
@@ -23,12 +22,10 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let flat = app.flatten_processes().clone();
     let visible_rows = chunks[0].height.saturating_sub(4) as usize;
     
-    // Range visibile
     let start = app.viewport_offset;
     let end = (start + visible_rows).min(flat.len());
     let visible_processes = &flat[start..end];
 
-    // Spazio per il line number 
     let max_line_num = flat.len();
     let line_num_width = max_line_num.to_string().len().max(3) as u16;
 
@@ -39,7 +36,6 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             let actual_idx = start + i;
             let node = app.get_process_at_flat_index(actual_idx).unwrap();
             
-            // Indicatori espansione nodo
             let indent = "  ".repeat(*depth);
             let expand_indicator = if !node.children.is_empty() {
                 if node.expanded { "▼ " } else { "▶ " }
@@ -55,7 +51,6 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
                 Style::default()
             };
 
-            // Numero linea nella colonna 1
             let line_num = format!("{:>width$}", actual_idx + 1, width = line_num_width as usize);
 
             Row::new(vec![
@@ -69,8 +64,21 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    let header = Row::new(vec!["#", "PID", "Name", "CPU%", "Memory"])
+    // Create header with sort indicators
+    let pid_header = get_header_with_indicator("PID", SortColumn::Pid, app);
+    let name_header = get_header_with_indicator("Name", SortColumn::Name, app);
+    let cpu_header = get_header_with_indicator("CPU%", SortColumn::Cpu, app);
+    let mem_header = get_header_with_indicator("Memory", SortColumn::Memory, app);
+
+    let header = Row::new(vec!["#", &pid_header, &name_header, &cpu_header, &mem_header])
         .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+
+    let title = if app.user_filter.is_some() || app.status_filter.is_some() || 
+                  app.cpu_threshold.is_some() || app.memory_threshold.is_some() {
+        format!("Processes ({}/{}) [FILTERED]", flat.len(), app.system.processes().len())
+    } else {
+        format!("Processes ({}/{})", flat.len(), app.system.processes().len())
+    };
 
     let table = Table::new(
         rows,
@@ -86,10 +94,9 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(format!("Processes ({}/{})", flat.len(), app.system.processes().len())),
+            .title(title),
     );
 
-    // Salvo la zona dell'header per gestire i click del mouse dopo
     app.header_area = Rect {
         x: chunks[0].x,
         y: chunks[0].y,
@@ -99,6 +106,18 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_widget(table, chunks[0]);
     draw_detail_panel(f, app, chunks[1]);
+
+    // Draw input overlays
+    draw_input_overlay(f, app);
+}
+
+fn get_header_with_indicator(name: &str, column: SortColumn, app: &App) -> String {
+    if app.sort_column == column {
+        let arrow = if app.reverse_sort { "↓" } else { "↑" };
+        format!("{} {}", name, arrow)
+    } else {
+        name.to_string()
+    }
 }
 
 fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
@@ -134,7 +153,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         if let Some(proc) = process {
             lines.push(Line::from(""));
             
-            // PID genitore
             if let Some(parent_pid) = proc.parent() {
                 lines.push(Line::from(vec![
                     Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
@@ -142,19 +160,23 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 ]));
             }
 
-            // Stato
             lines.push(Line::from(vec![
                 Span::styled("Status: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{:?}", proc.status())),
             ]));
 
-            // V RAM
+            if let Some(uid) = node.info.user_id {
+                lines.push(Line::from(vec![
+                    Span::styled("User ID: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(format!("{}", uid)),
+                ]));
+            }
+
             lines.push(Line::from(vec![
                 Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{:.2} MB", proc.virtual_memory() as f64 / 1024.0 / 1024.0)),
             ]));
 
-            // Disco
             let disk_usage = proc.disk_usage();
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -166,20 +188,17 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(format!("{:.2} MB", disk_usage.written_bytes as f64 / 1024.0 / 1024.0)),
             ]));
 
-            // Run time
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{}s", proc.run_time())),
             ]));
 
-            // Start time
             lines.push(Line::from(vec![
                 Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{}", proc.start_time())),
             ]));
 
-            // Command line (truncated)
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow))));
             let cmd_parts: Vec<String> = proc.cmd()
@@ -195,7 +214,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 lines.push(Line::from(cmd));
             }
 
-            // Numero children 
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("Children: ", Style::default().fg(Color::Cyan)),
@@ -224,4 +242,101 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         .style(Style::default());
 
     f.render_widget(paragraph, area);
+}
+
+fn draw_input_overlay(f: &mut Frame, app: &App) {
+    match app.input_mode {
+        InputMode::UpdateInterval => {
+            let area = centered_rect(60, 20, f.area());
+            let block = Block::default()
+                .title("Set Update Interval (ms)")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+            
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter interval (100-10000 ms): "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+            
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center);
+            
+            f.render_widget(paragraph, area);
+        }
+        InputMode::ConfirmKill => {
+            let area = centered_rect(60, 20, f.area());
+            let block = Block::default()
+                .title("⚠ Confirm Kill Critical Process")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+            
+            let text = vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    "This appears to be a critical system process!",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                )),
+                Line::from(""),
+                Line::from("Are you sure you want to kill this process?"),
+                Line::from(""),
+                Line::from("Press Y to confirm, N or Esc to cancel"),
+            ];
+            
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center);
+            
+            f.render_widget(paragraph, area);
+        }
+        InputMode::UserFilter => {
+            let area = centered_rect(60, 20, f.area());
+            let block = Block::default()
+                .title("Filter by User ID")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+            
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter User ID: "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+            
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center);
+            
+            f.render_widget(paragraph, area);
+        }
+        InputMode::None => {}
+    }
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

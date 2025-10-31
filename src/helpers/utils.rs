@@ -1,18 +1,19 @@
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 use crate::{App, ProcessNode};
+use anyhow::Result;
 
 impl App {
     pub fn force_refresh(&mut self) {
         self.system.refresh_cpu_all();
         self.system.refresh_memory();
-        let mut system = System::new_all();
 
-        system.refresh_processes_specifics(
+        self.system.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,
             ProcessRefreshKind::nothing()
                 .with_cpu()
-                .with_memory(),
+                .with_memory()
+                .with_user(UpdateKind::Always),
         );
 
         self.networks.refresh(true);
@@ -21,7 +22,6 @@ impl App {
     }
 
     pub fn flatten_processes(&mut self) -> &Vec<(usize, usize)> {
-        // Se esiste, returna i valori della cache
         if self.cached_flat_processes.is_none() {
             let mut result = Vec::with_capacity(self.processes.len() * 2);
             for (idx, node) in self.processes.iter().enumerate() {
@@ -39,14 +39,41 @@ impl App {
         depth: usize,
         result: &mut Vec<(usize, usize)>,
     ) {
-        // Filtro
+        // Filtri
         if !self.search_query.is_empty() {
             let query_lower = self.search_query.to_lowercase();
             let name_lower = node.info.name.to_lowercase();
             let pid_str = node.info.pid.to_string();
             
-            // Cerca per nome o PID
             if !name_lower.contains(&query_lower) && !pid_str.contains(&self.search_query) {
+                return;
+            }
+        }
+
+        if let Some(ref user_filter) = self.user_filter {
+            if let Some(uid) = node.info.user_id {
+                if !uid.to_string().contains(user_filter) {
+                    return;
+                }
+            } else {
+                return;
+            }
+        }
+
+        if let Some(ref status_filter) = self.status_filter {
+            if !node.info.status.to_lowercase().contains(&status_filter.to_lowercase()) {
+                return;
+            }
+        }
+
+        if let Some(threshold) = self.cpu_threshold {
+            if node.info.cpu_usage < threshold {
+                return;
+            }
+        }
+
+        if let Some(threshold) = self.memory_threshold {
+            if node.info.memory < threshold {
                 return;
             }
         }
@@ -76,7 +103,6 @@ impl App {
                     let pid = node.info.pid;
                     let expanded = self.expanded_pids.get(&pid).copied().unwrap_or(false);
                     self.expanded_pids.insert(pid, !expanded);
-                    // Invalida cache quando espande o comprime i nodi
                     self.cached_flat_processes = None;
                     self.force_refresh();
                 }
@@ -108,7 +134,6 @@ impl App {
         }
     }
 
-    // Assicura che l'oggetto sia visibile nel viewport
     pub fn ensure_visible(&mut self, index: usize) {
         let visible_rows = self.table_area.height.saturating_sub(4) as usize;
 
@@ -166,7 +191,42 @@ impl App {
             self.table_state.select(None);
         }
     }
+
+    pub fn show_open_files(&mut self) -> Result<()> {
+        // WIP
+        Ok(())
+    }
+
+    pub fn clear_filters(&mut self) {
+        self.user_filter = None;
+        self.status_filter = None;
+        self.cpu_threshold = None;
+        self.memory_threshold = None;
+        self.cached_flat_processes = None;
+        self.force_refresh();
+    }
 }
+
 pub fn calculate_avg_cpu(app: &App) -> f32 {
     app.system.cpus().iter().map(|c| c.cpu_usage()).sum::<f32>() / app.system.cpus().len() as f32
+}
+
+pub fn generate_sparkline(data: &[f32]) -> String {
+    if data.is_empty() {
+        return String::new();
+    }
+    
+    let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let max = data.iter().cloned().fold(0.0f32, f32::max);
+    
+    if max == 0.0 {
+        return "▁".repeat(data.len());
+    }
+    
+    data.iter()
+        .map(|&val| {
+            let normalized = (val / max * (chars.len() - 1) as f32) as usize;
+            chars[normalized]
+        })
+        .collect()
 }

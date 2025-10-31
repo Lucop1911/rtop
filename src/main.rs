@@ -16,6 +16,7 @@ use ratatui::{
     layout::Rect,
     widgets::TableState,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     io,
@@ -25,7 +26,7 @@ use std::{
 };
 use sysinfo::{Networks, Pid, System};
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 enum SortColumn {
     Pid,
     Name,
@@ -40,18 +41,45 @@ enum Page {
     Help,
 }
 
+#[derive(PartialEq)]
+enum InputMode {
+    None,
+    UpdateInterval,
+    ConfirmKill,
+    UserFilter,
+}
+
 #[derive(Clone)]
 struct ProcessInfo {
     pid: Pid,
     name: String,
     cpu_usage: f32,
     memory: u64,
+    user_id: Option<u32>,
+    status: String,
 }
 
 struct ProcessNode {
     info: ProcessInfo,
     children: Vec<ProcessNode>,
     expanded: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct Preferences {
+    update_interval_ms: u64,
+    sort_column: SortColumn,
+    reverse_sort: bool,
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            update_interval_ms: 1000,
+            sort_column: SortColumn::Cpu,
+            reverse_sort: true,
+        }
+    }
 }
 
 struct App {
@@ -67,6 +95,7 @@ struct App {
     search_query: String,
     last_update: Instant,
     cpu_history: Vec<Vec<f32>>,
+    memory_history: Vec<f64>,
     network_history: Vec<(u64, u64)>,
     table_area: Rect,
     last_click: Option<(Instant, u16, u16)>,
@@ -74,6 +103,14 @@ struct App {
     update_interval: Duration,
     viewport_offset: usize,
     cached_flat_processes: Option<Vec<(usize, usize)>>,
+    input_mode: InputMode,
+    input_buffer: String,
+    pending_kill_pid: Option<Pid>,
+    preferences: Preferences,
+    user_filter: Option<String>,
+    status_filter: Option<String>,
+    cpu_threshold: Option<f32>,
+    memory_threshold: Option<u64>,
 }
 
 impl App {
@@ -87,12 +124,15 @@ impl App {
 
         let networks = Networks::new_with_refreshed_list();
 
+        // Load preferences
+        let preferences = Self::load_preferences().unwrap_or_default();
+
         let mut app = Self {
             system,
             networks,
             page: Page::Processes,
-            sort_column: SortColumn::Cpu,
-            reverse_sort: true,
+            sort_column: preferences.sort_column,
+            reverse_sort: preferences.reverse_sort,
             table_state: TableState::default(),
             processes: Vec::new(),
             expanded_pids: HashMap::new(),
@@ -100,57 +140,27 @@ impl App {
             search_query: String::new(),
             last_update: Instant::now(),
             cpu_history: vec![vec![]; 60],
+            memory_history: Vec::new(),
             network_history: vec![(0, 0); 60],
             table_area: Rect::default(),
             last_click: None,
             header_area: Rect::default(),
-            update_interval: Duration::from_millis(1000),
+            update_interval: Duration::from_millis(preferences.update_interval_ms),
             viewport_offset: 0,
             cached_flat_processes: None,
+            input_mode: InputMode::None,
+            input_buffer: String::new(),
+            pending_kill_pid: None,
+            preferences,
+            user_filter: None,
+            status_filter: None,
+            cpu_threshold: None,
+            memory_threshold: None,
         };
 
         app.build_process_tree();
         app.table_state.select(Some(0));
         app
-    }
-
-    fn refresh(&mut self) {
-        self.system.refresh_cpu_all();
-        self.system.refresh_memory();
-
-        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
-        self.system.refresh_processes_specifics(
-            ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::nothing()
-                .with_cpu()
-                .with_memory(),
-        );
-
-        self.networks.refresh(true);
-
-        // Aggiorna CPU history
-        for (i, cpu) in self.system.cpus().iter().enumerate() {
-            if i >= self.cpu_history.len() {
-                self.cpu_history.push(Vec::new());
-            }
-            self.cpu_history[i].push(cpu.cpu_usage());
-            if self.cpu_history[i].len() > 60 {
-                self.cpu_history[i].remove(0);
-            }
-        }
-
-        // Aggiorna network history
-        let (rx, tx) = self.networks.iter().fold((0, 0), |(rx, tx), (_, net)| {
-            (rx + net.received(), tx + net.transmitted())
-        });
-        self.network_history.push((rx, tx));
-        if self.network_history.len() > 60 {
-            self.network_history.remove(0);
-        }
-
-        self.last_update = Instant::now();
-        self.build_process_tree();
     }
 }
 
@@ -163,11 +173,10 @@ fn main() -> Result<()> {
 
     let app = Arc::new(Mutex::new(App::new()));
 
-    // Uso un thread per miglior performance
+    // Thread per il refresh in background
     let app_bg = Arc::clone(&app);
     thread::spawn(move || {
         loop {
-            // lock, refresh, get interval, unlock, then sleep
             let sleep_duration = {
                 let mut app = app_bg.lock().unwrap();
                 app.refresh();
@@ -200,11 +209,10 @@ fn run_app<B: Backend>(
 ) -> Result<()> {
     loop {
         {
-            let mut app_guard = app.lock().unwrap(); // Blocco l'app per non avere accessi concorrenti
-            terminal.draw(|f| ui(f, &mut app_guard))?; // Ridisegno l'ui
+            let mut app_guard = app.lock().unwrap();
+            terminal.draw(|f| ui(f, &mut app_guard))?;
         }
         
-        // Se non ci sono eventi per 50ms ridisegna l'ui, se ci sono li gestisce
         if event::poll(Duration::from_millis(50))? { 
             match event::read()? {
                 Event::Key(key) => {

@@ -16,15 +16,25 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         ])]
     } else {
         let update_ms = app.update_interval.as_millis();
+        let filters = get_active_filters(app);
+        
         vec![Line::from(vec![
-            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | K: Kill | R: Refresh | Space/Enter: Expand | "),
-            ratatui::text::Span::raw("t/b: Top/Bottom | "),
+            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | p/n/c/m: Sort by PID/ Name/ CPU%/ Mem | "),
             ratatui::text::Span::raw("+/-: Speed ("),
             ratatui::text::Span::styled(
                 format!("{}ms", update_ms),
                 Style::default().fg(Color::Yellow)
             ),
-            ratatui::text::Span::raw(") | q: Exit"),
+            ratatui::text::Span::raw(")"),
+            if !filters.is_empty() {
+                ratatui::text::Span::styled(
+                    format!(" | Filters: {}", filters),
+                    Style::default().fg(Color::Magenta)
+                )
+            } else {
+                ratatui::text::Span::raw("")
+            },
+            ratatui::text::Span::raw(" | q: Exit"),
         ])]
     };
 
@@ -34,4 +44,23 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         .style(Style::default().fg(Color::Cyan));
 
     f.render_widget(footer, area);
+}
+
+fn get_active_filters(app: &App) -> String {
+    let mut filters = Vec::new();
+    
+    if app.user_filter.is_some() {
+        filters.push("User");
+    }
+    if app.status_filter.is_some() {
+        filters.push("Status");
+    }
+    if app.cpu_threshold.is_some() {
+        filters.push("CPU");
+    }
+    if app.memory_threshold.is_some() {
+        filters.push("Memory");
+    }
+    
+    filters.join(", ")
 }

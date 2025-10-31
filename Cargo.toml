@@ -11,6 +11,10 @@ ratatui = "0.29.0"
 crossterm = "0.29.0"
 sysinfo = "0.37.2"
 anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "6.0.0"
+libc = "0.2"
 
 [profile.release]
 opt-level = "s"

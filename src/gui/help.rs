@@ -31,44 +31,66 @@ pub fn draw_help(f: &mut Frame, _app: &mut App, area: Rect) {
 
     f.render_widget(title_paragraph, chunks[0]);
 
-    // Keybindings
     let bindings = vec![
-        ("Esc / h / ?", "Go back to processes"),
-        ("q / Esc", "Quit application"),
-        ("Enter/ Space", "Open selected process"),
-        ("k", "Kill or delete process"),
-        ("↓", "Move selection down"),
-        ("↑", "Move selection up"),
-        ("PageUP", "Navigate up"),
-        ("PageDOWN", "Navigate down"),
-        ("t", "Move to top"),
-        ("b", "Move to bottom"),
-        ("p", "Sort per process ID"),
-        ("n", "Sort per process name"),
-        ("c", "sort per CPU usage"),
-        ("m", "Sort per Memory usage"),
-        ("f - /", "search"),
-        ("+", "Increase refresh speed"),
-        ("-", "Decrease refresh speed"),
-        ("R", "Refresh"),
+        ("Navigation", ""),
+        ("↑/↓", "Move selection up/down"),
+        ("PageUp/PageDown", "Navigate by page"),
+        ("t", "Jump to top"),
+        ("b", "Jump to bottom"),
+        ("", ""),
+        ("Actions", ""),
+        ("Enter/Space", "Expand/collapse process tree"),
+        ("k/Del", "Kill process (with confirmation for critical)"),
+        ("s", "Suspend process (SIGSTOP)"),
+        ("u", "Resume process (SIGCONT)"),
+        ("o", "Show open files"),
+        ("r", "Force refresh"),
+        ("", ""),
+        ("Sorting", ""),
+        ("p", "Sort by PID"),
+        ("n", "Sort by name"),
+        ("c", "Sort by CPU usage"),
+        ("m", "Sort by memory usage"),
+        ("", ""),
+        ("Search & Filter", ""),
+        ("/ or Ctrl+F", "Search processes"),
+        ("w", "Filter by user ID"),
+        ("l", "Clear all filters"),
+        ("", ""),
+        ("View & Settings", ""),
+        ("1 or F1", "Process view"),
+        ("2 or F2", "System stats view"),
+        ("3 or F3 or h or ?", "Help screen"),
+        ("i", "Set custom update interval"),
+        ("+ / -", "Increase/decrease update speed"),
+        ("", ""),
+        ("General", ""),
+        ("q or Esc", "Quit (saves preferences)"),
+        ("Ctrl+C", "Force quit (saves preferences)"),
     ];
 
     let rows: Vec<Row> = bindings
         .iter()
         .map(|(key, desc)| {
-            Row::new(vec![
-                Span::styled(*key, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                Span::raw(*desc),
-            ])
+            if key.is_empty() {
+                Row::new(vec![
+                    Span::raw(""),
+                    Span::styled(*desc, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                ])
+            } else {
+                Row::new(vec![
+                    Span::styled(*key, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                    Span::raw(*desc),
+                ])
+            }
         })
         .collect();
     
-    //Tabella
     let table = Table::new(
         rows,
         [
-            Constraint::Length(20),
-            Constraint::Percentage(80),
+            Constraint::Length(25),
+            Constraint::Percentage(75),
         ],
     )
     .header(
