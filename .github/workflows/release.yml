@@ -1,0 +1,69 @@
+name: Build & Release
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch: # Only runs manually
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Rust TUI
+
+    steps:
+      # Step 1: Checkout the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Rust toolchain
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      # Step 3: Cache cargo registry & build dependencies
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # Step 4: Build release binary
+      - name: Build release
+        run: cargo build --release
+
+      # Step 5: Package the binary
+      - name: Package binary
+        run: |
+          mkdir -p dist
+          cp target/release/rtop dist/
+          tar czvf rtop-${{ github.ref_name }}-linux.tar.gz -C dist rtop
+
+      # Step 6: Upload to GitHub Releases
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/rtop-${{ github.ref_name }}-linux.tar.gz
+          asset_name: rtop-${{ github.ref_name }}-linux.tar.gz
+          asset_content_type: application/gzip
