@@ -29,7 +29,7 @@ cargo build --release
 The compiled binary will be located at:
 
 ```
-target/release/rtop  # Linux/macOS
+target/release/rtop
 ```
 
 ### 3. Install the binary
