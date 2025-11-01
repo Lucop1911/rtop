@@ -101,9 +101,6 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char('u') | KeyCode::Char('U') => {
                 app.resume_process()?;
             }
-            KeyCode::Char('o') | KeyCode::Char('O') => {
-                app.show_open_files()?;
-            }
             KeyCode::Char('i') | KeyCode::Char('I') => {
                 app.input_mode = InputMode::UpdateInterval;
                 app.input_buffer = app.update_interval.as_millis().to_string();

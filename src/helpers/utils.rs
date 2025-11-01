@@ -1,6 +1,5 @@
 use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 use crate::{App, ProcessNode};
-use anyhow::Result;
 
 impl App {
     pub fn force_refresh(&mut self) {
@@ -190,11 +189,6 @@ impl App {
         } else {
             self.table_state.select(None);
         }
-    }
-
-    pub fn show_open_files(&mut self) -> Result<()> {
-        // WIP
-        Ok(())
     }
 
     pub fn clear_filters(&mut self) {

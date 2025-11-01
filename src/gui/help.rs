@@ -43,7 +43,6 @@ pub fn draw_help(f: &mut Frame, _app: &mut App, area: Rect) {
         ("k/Del", "Kill process (with confirmation for critical)"),
         ("s", "Suspend process (SIGSTOP)"),
         ("u", "Resume process (SIGCONT)"),
-        ("o", "Show open files"),
         ("r", "Force refresh"),
         ("", ""),
         ("Sorting", ""),
