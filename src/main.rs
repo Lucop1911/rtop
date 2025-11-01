@@ -25,6 +25,7 @@ use std::{
     thread,
 };
 use sysinfo::{Networks, Pid, System};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 enum SortColumn {
@@ -172,22 +173,43 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let app = Arc::new(Mutex::new(App::new()));
+    let should_stop = Arc::new(AtomicBool::new(false));
 
     // Thread per il refresh in background
     let app_bg = Arc::clone(&app);
-    thread::spawn(move || {
+    let stop_flag = Arc::clone(&should_stop);
+    let bg_thread = thread::spawn(move || {
         loop {
+            if stop_flag.load(Ordering::Relaxed) {
+                break;
+            }
             let sleep_duration = {
                 let mut app = app_bg.lock().unwrap();
                 app.refresh();
                 app.update_interval
             };
-            thread::sleep(sleep_duration);
+            
+            // Sleep in small chunks so we can exit quickly
+            let chunk_size = Duration::from_millis(50);
+            let mut remaining = sleep_duration;
+            while remaining > Duration::ZERO {
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                let to_sleep = remaining.min(chunk_size);
+                thread::sleep(to_sleep);
+                remaining = remaining.saturating_sub(to_sleep);
+            }
         }
     });
 
     let res = run_app(&mut terminal, Arc::clone(&app));
 
+    // Mando il segnale di stop al thread
+    should_stop.store(true, Ordering::Relaxed);
+    bg_thread.join().ok();
+
+    // Cleanup
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),

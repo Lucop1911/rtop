@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Row, Table},
+    widgets::{Block, Borders, Paragraph, Row, Table, Clear},
 };
 
 use crate::{App, SortColumn, InputMode};
@@ -46,9 +46,9 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             
             let is_selected = Some(actual_idx) == app.table_state.selected();
             let style = if is_selected {
-                Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
+                Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD)
             } else {
-                Style::default()
+                Style::default().bg(Color::Black).fg(Color::White)
             };
 
             let line_num = format!("{:>width$}", actual_idx + 1, width = line_num_width as usize);
@@ -64,14 +64,14 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    // Create header with sort indicators
+    // Headers con indicatori
     let pid_header = get_header_with_indicator("PID", SortColumn::Pid, app);
     let name_header = get_header_with_indicator("Name", SortColumn::Name, app);
     let cpu_header = get_header_with_indicator("CPU%", SortColumn::Cpu, app);
     let mem_header = get_header_with_indicator("Memory", SortColumn::Memory, app);
 
     let header = Row::new(vec!["#", &pid_header, &name_header, &cpu_header, &mem_header])
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD).bg(Color::Black));
 
     let title = if app.user_filter.is_some() || app.status_filter.is_some() || 
                   app.cpu_threshold.is_some() || app.memory_threshold.is_some() {
@@ -94,8 +94,10 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(title),
-    );
+            .title(title)
+            .style(Style::default().bg(Color::Black))
+    )
+    .style(Style::default().bg(Color::Black));
 
     app.header_area = Rect {
         x: chunks[0].x,
@@ -121,6 +123,9 @@ fn get_header_with_indicator(name: &str, column: SortColumn, app: &App) -> Strin
 }
 
 fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
+    // Clear the area to remove transparency
+    f.render_widget(Clear, area);
+    
     let selected_node = app.table_state.selected()
         .and_then(|idx| app.get_process_at_flat_index(idx));
 
@@ -237,9 +242,9 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Process Details")
-                .style(Style::default().fg(Color::White))
+                .style(Style::default().fg(Color::White).bg(Color::Black))
         )
-        .style(Style::default());
+        .style(Style::default().fg(Color::White).bg(Color::Black));
 
     f.render_widget(paragraph, area);
 }
@@ -248,6 +253,9 @@ fn draw_input_overlay(f: &mut Frame, app: &App) {
     match app.input_mode {
         InputMode::UpdateInterval => {
             let area = centered_rect(60, 20, f.area());
+            
+            f.render_widget(Clear, area);
+            
             let block = Block::default()
                 .title("Set Update Interval (ms)")
                 .borders(Borders::ALL)
@@ -265,12 +273,16 @@ fn draw_input_overlay(f: &mut Frame, app: &App) {
             
             let paragraph = Paragraph::new(text)
                 .block(block)
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
             
             f.render_widget(paragraph, area);
         }
         InputMode::ConfirmKill => {
             let area = centered_rect(60, 20, f.area());
+            
+            f.render_widget(Clear, area);
+            
             let block = Block::default()
                 .title("⚠ Confirm Kill Critical Process")
                 .borders(Borders::ALL)
@@ -290,12 +302,16 @@ fn draw_input_overlay(f: &mut Frame, app: &App) {
             
             let paragraph = Paragraph::new(text)
                 .block(block)
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
             
             f.render_widget(paragraph, area);
         }
         InputMode::UserFilter => {
             let area = centered_rect(60, 20, f.area());
+            
+            f.render_widget(Clear, area);
+            
             let block = Block::default()
                 .title("Filter by User ID")
                 .borders(Borders::ALL)
@@ -313,7 +329,8 @@ fn draw_input_overlay(f: &mut Frame, app: &App) {
             
             let paragraph = Paragraph::new(text)
                 .block(block)
-                .alignment(ratatui::layout::Alignment::Center);
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
             
             f.render_widget(paragraph, area);
         }
