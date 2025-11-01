@@ -182,16 +182,23 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(format!("{:.2} MB", proc.virtual_memory() as f64 / 1024.0 / 1024.0)),
             ]));
 
-            let disk_usage = proc.disk_usage();
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Disk Read: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:.2} MB", disk_usage.read_bytes as f64 / 1024.0 / 1024.0)),
-            ]));
-            lines.push(Line::from(vec![
-                Span::styled("Disk Write: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:.2} MB", disk_usage.written_bytes as f64 / 1024.0 / 1024.0)),
-            ]));
+            if let Some((read, write)) = app.calculate_process_io() {
+                lines.push(Line::from(vec![
+                    Span::styled("Process I/O:", Style::default().fg(Color::Cyan)),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::raw(format!("  Read: {:.2} MB", read as f64 / 1024.0 / 1024.0)),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::raw(format!("  Write: {:.2} MB", write as f64 / 1024.0 / 1024.0)),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("Process I/O: ", Style::default().fg(Color::Cyan)),
+                    Span::styled("N/A", Style::default().fg(Color::White)),
+                ]));
+            }
 
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
@@ -225,7 +232,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(format!("{}", node.children.len())),
             ]));
         }
-
         lines
     } else {
         vec![

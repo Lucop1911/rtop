@@ -110,26 +110,52 @@ impl App {
     }
 
     pub fn select_next(&mut self) {
-        let flat_len = self.flatten_processes().len();
-        if flat_len > 0 {
-            let i = self
-                .table_state
-                .selected()
-                .map_or(0, |i| (i + 1).min(flat_len - 1));
-            self.table_state.select(Some(i));
-            self.ensure_visible(i);
+        if let Some(ref cached) = self.cached_flat_processes {
+            let flat_len = cached.len();
+            if flat_len > 0 {
+                let i = self
+                    .table_state
+                    .selected()
+                    .map_or(0, |i| (i + 1).min(flat_len - 1));
+                self.table_state.select(Some(i));
+                self.ensure_visible(i);
+            }
+        } else {
+            // Build cache only if needed
+            let flat_len = self.flatten_processes().len();
+            if flat_len > 0 {
+                let i = self
+                    .table_state
+                    .selected()
+                    .map_or(0, |i| (i + 1).min(flat_len - 1));
+                self.table_state.select(Some(i));
+                self.ensure_visible(i);
+            }
         }
     }
 
     pub fn select_prev(&mut self) {
-        let flat_len = self.flatten_processes().len();
-        if flat_len > 0 {
-            let i = self
-                .table_state
-                .selected()
-                .map_or(0, |i| i.saturating_sub(1));
-            self.table_state.select(Some(i));
-            self.ensure_visible(i);
+        if let Some(ref cached) = self.cached_flat_processes {
+            let flat_len = cached.len();
+            if flat_len > 0 {
+                let i = self
+                    .table_state
+                    .selected()
+                    .map_or(0, |i| i.saturating_sub(1));
+                self.table_state.select(Some(i));
+                self.ensure_visible(i);
+            }
+        } else {
+            // Build cache only if needed
+            let flat_len = self.flatten_processes().len();
+            if flat_len > 0 {
+                let i = self
+                    .table_state
+                    .selected()
+                    .map_or(0, |i| i.saturating_sub(1));
+                self.table_state.select(Some(i));
+                self.ensure_visible(i);
+            }
         }
     }
 
@@ -150,7 +176,12 @@ impl App {
     }
 
     pub fn go_to_bottom(&mut self) {
-        let flat_len = self.flatten_processes().len();
+        let flat_len = if let Some(ref cached) = self.cached_flat_processes {
+            cached.len()
+        } else {
+            self.flatten_processes().len()
+        };
+        
         if flat_len > 0 {
             let last_idx = flat_len - 1;
             self.table_state.select(Some(last_idx));
@@ -160,7 +191,12 @@ impl App {
     }
 
     pub fn page_down(&mut self) {
-        let flat_len = self.flatten_processes().len();
+        let flat_len = if let Some(ref cached) = self.cached_flat_processes {
+            cached.len()
+        } else {
+            self.flatten_processes().len()
+        };
+        
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
@@ -171,7 +207,12 @@ impl App {
     }
 
     pub fn page_up(&mut self) {
-        let flat_len = self.flatten_processes().len();
+        let flat_len = if let Some(ref cached) = self.cached_flat_processes {
+            cached.len()
+        } else {
+            self.flatten_processes().len()
+        };
+        
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
