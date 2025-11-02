@@ -9,12 +9,17 @@ use ratatui::{
 use crate::{App, helpers::utils::{calculate_avg_cpu, generate_sparkline}, helpers::memory, helpers::network};
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
+    let num_cpus = app.system.cpus().len();
+    let rows_per_column = (num_cpus + 1) / 2;
+    let cpu_cores_height = (rows_per_column * 2) as u16;
+    let cpu_total_height = 3 + 2 + cpu_cores_height;
+    
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(16),  // CPU + per core infos
-            Constraint::Length(7),  // Memory con history
-            Constraint::Min(5),     // Network
+            Constraint::Length(cpu_total_height),  // CPU
+            Constraint::Length(7),                 // Memory
+            Constraint::Min(5),                    // Networ
         ])
         .split(area);
 
