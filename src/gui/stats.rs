@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
-use crate::{App, helpers::utils::{calculate_avg_cpu, generate_sparkline}, helpers::memory, helpers::network};
+use crate::{App, gui::input_overlay::draw_input_overlay, helpers::{memory, network, utils::{calculate_avg_cpu, generate_sparkline}}};
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let num_cpus = app.system.cpus().len();
@@ -26,6 +26,8 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     draw_cpu_section(f, app, chunks[0]);
     draw_memory_section(f, app, chunks[1]);
     draw_network_section(f, app, chunks[2]);
+
+    draw_input_overlay(f, app);
 }
 
 fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {

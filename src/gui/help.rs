@@ -6,9 +6,9 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Row, Table},
 };
 
-use crate::App;
+use crate::{App, gui::input_overlay::draw_input_overlay};
 
-pub fn draw_help(f: &mut Frame, _app: &mut App, area: Rect) {
+pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -107,4 +107,6 @@ pub fn draw_help(f: &mut Frame, _app: &mut App, area: Rect) {
     .style(Style::default().fg(Color::White));
 
     f.render_widget(table, chunks[1]);
+
+    draw_input_overlay(f, app);
 }
