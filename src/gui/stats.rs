@@ -13,7 +13,7 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(16),  // CPU + per core infos
-            Constraint::Length(8),  // Memory con history
+            Constraint::Length(7),  // Memory con history
             Constraint::Min(5),     // Network
         ])
         .split(area);
@@ -35,7 +35,6 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
         .gauge_style(Style::default().fg(Color::Cyan).bg(Color::Black))
         .percent(avg_cpu as u16);
 
-    // Split area vertically: overall + per-core
     let cpu_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -46,7 +45,6 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(cpu_gauge, cpu_chunks[0]);
 
-    // Split per-core area into two columns
     let per_core_cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -58,14 +56,12 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
     let cpus = app.system.cpus();
     let half = (cpus.len() + 1) / 2;
 
-    // Helper closure to generate column lines
     let build_core_lines = |slice: &[sysinfo::Cpu]| {
         let mut lines = Vec::new();
         for (i, cpu) in slice.iter().enumerate() {
             let global_idx = app.system.cpus().iter().position(|c| std::ptr::eq(c, cpu)).unwrap_or(i);
             let usage = cpu.cpu_usage();
 
-            // Fetch sparkline safely
             let history = app.cpu_history.get(global_idx).map(|h| &h[..]).unwrap_or(&[]);
             let sparkline = if !history.is_empty() {
                 generate_sparkline(history)
@@ -93,7 +89,6 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
         lines
     };
 
-    // Left and right columns
     let left_lines = build_core_lines(&cpus[..half]);
     let right_lines = build_core_lines(&cpus[half..]);
 
@@ -113,10 +108,13 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
 fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
     let (used_mem, total_mem, mem_percent) = memory::calculate_memory(app);
 
-    // Utilizzo memoria
-    let mem_sparkline = generate_sparkline(
-        &app.memory_history.iter().map(|&x| x as f32).collect::<Vec<f32>>()
-    );
+    let mem_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(4),
+        ])
+        .split(area);
 
     let mem_gauge = Gauge::default()
         .block(Block::default().borders(Borders::ALL).title(format!(
@@ -128,20 +126,27 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
         .gauge_style(Style::default().fg(Color::Green))
         .percent(mem_percent);
 
-    let mem_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(1),
-        ])
-        .split(area);
-
     f.render_widget(mem_gauge, mem_chunks[0]);
 
-    // Memory history
+    let history_width = mem_chunks[1].width.saturating_sub(4) as usize;
+    
+    let mem_sparkline = if app.memory_history.is_empty() {
+        "▁".repeat(history_width.min(60))
+    } else if app.memory_history.len() >= history_width {
+        let start_idx = app.memory_history.len() - history_width;
+        let sampled: Vec<f32> = app.memory_history[start_idx..]
+            .iter()
+            .map(|&x| x as f32)
+            .collect();
+        generate_sparkline(&sampled)
+    } else {
+        let mem_data: Vec<f32> = app.memory_history.iter().map(|&x| x as f32).collect();
+        generate_sparkline(&mem_data)
+    };
+
     let history_text = vec![
         Line::from(vec![
-            Span::styled("History (60s): ", Style::default().fg(Color::Cyan)),
+            Span::styled("History: ", Style::default().fg(Color::Cyan)),
             Span::styled(mem_sparkline, Style::default().fg(Color::Green)),
         ]),
     ];
@@ -159,29 +164,46 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
     let net_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(6),
             Constraint::Min(1),
         ])
         .split(area);
 
-    // Network history sparkline
-    let rx_history: Vec<f32> = app.network_history
-        .iter()
-        .map(|(rx, _)| *rx as f32 / 1024.0 / 1024.0)
-        .collect();
-    let tx_history: Vec<f32> = app.network_history
-        .iter()
-        .map(|(_, tx)| *tx as f32 / 1024.0 / 1024.0)
-        .collect();
+    let inner_width = net_chunks[0].width.saturating_sub(4) as usize; // Remove borders
+    let label_width = "↓ Received: ".len();
+    let sparkline_width = inner_width.saturating_sub(label_width).max(20);
 
-    let rx_sparkline = generate_sparkline(&rx_history);
-    let tx_sparkline = generate_sparkline(&tx_history);
+    let sample_network = |history: &[(u64, u64)], extract_fn: fn(&(u64, u64)) -> u64| -> String {
+        if history.is_empty() {
+            return "▁".repeat(sparkline_width.min(60));
+        }
+        
+        if history.len() >= sparkline_width {
+            let start_idx = history.len() - sparkline_width;
+            let sampled: Vec<f32> = history[start_idx..]
+                .iter()
+                .map(|item| extract_fn(item) as f32 / 1024.0 / 1024.0)
+                .collect();
+            generate_sparkline(&sampled)
+        } else {
+            let data: Vec<f32> = history
+                .iter()
+                .map(|item| extract_fn(item) as f32 / 1024.0 / 1024.0)
+                .collect();
+            generate_sparkline(&data)
+        }
+    };
+
+    let rx_sparkline = sample_network(&app.network_history, |&(rx, _)| rx);
+    let tx_sparkline = sample_network(&app.network_history, |&(_, tx)| tx);
 
     let summary = Paragraph::new(vec![
+        Line::from(""),
         Line::from(vec![
             Span::styled("↓ Received: ", Style::default().fg(Color::Green)),
             Span::styled(rx_sparkline, Style::default().fg(Color::Green)),
         ]),
+        Line::from(""),
         Line::from(vec![
             Span::styled("↑ Sent:     ", Style::default().fg(Color::Blue)),
             Span::styled(tx_sparkline, Style::default().fg(Color::Blue)),

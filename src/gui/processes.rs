@@ -123,7 +123,6 @@ fn get_header_with_indicator(name: &str, column: SortColumn, app: &App) -> Strin
 }
 
 fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
-    // Clear the area to remove transparency
     f.render_widget(Clear, area);
     
     let selected_node = app.table_state.selected()
