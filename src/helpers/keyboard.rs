@@ -156,7 +156,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             }
             KeyCode::Char('-') | KeyCode::Char('_') => {
                 let new_interval = app.update_interval + Duration::from_millis(100);
-                app.update_interval = new_interval.min(Duration::from_millis(5000));
+                app.update_interval = new_interval.min(Duration::from_millis(10000));
                 app.preferences.update_interval_ms = app.update_interval.as_millis() as u64;
             }
             KeyCode::PageDown => {
