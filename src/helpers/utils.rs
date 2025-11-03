@@ -265,3 +265,22 @@ pub fn generate_sparkline(data: &[f32]) -> String {
         })
         .collect()
 }
+
+pub fn generate_sparkline_with_max(data: &[f32], max_value: f32) -> String {
+    if data.is_empty() {
+        return String::new();
+    }
+    
+    let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    
+    if max_value == 0.0 {
+        return "▁".repeat(data.len());
+    }
+    
+    data.iter()
+        .map(|&val| {
+            let normalized = ((val / max_value) * (chars.len() - 1) as f32) as usize;
+            chars[normalized.min(chars.len() - 1)]
+        })
+        .collect()
+}

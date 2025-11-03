@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
-use crate::{App, gui::input_overlay::draw_input_overlay, helpers::{memory, network, utils::{calculate_avg_cpu, generate_sparkline}}};
+use crate::{App, gui::input_overlay::draw_input_overlay, helpers::{memory, network, utils::{calculate_avg_cpu, generate_sparkline, generate_sparkline_with_max}}};
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let num_cpus = app.system.cpus().len();
@@ -145,10 +145,10 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
             .iter()
             .map(|&x| x as f32)
             .collect();
-        generate_sparkline(&sampled)
+        generate_sparkline_with_max(&sampled, total_mem as f32)
     } else {
         let mem_data: Vec<f32> = app.memory_history.iter().map(|&x| x as f32).collect();
-        generate_sparkline(&mem_data)
+        generate_sparkline_with_max(&mem_data, total_mem as f32)
     };
 
     let history_text = vec![
