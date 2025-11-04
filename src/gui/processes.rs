@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Row, Table, Clear},
+    widgets::{Block, Borders, Clear, Paragraph, Row, Table},
 };
 
 use crate::{App, SortColumn, gui::input_overlay::draw_input_overlay};
@@ -11,17 +11,14 @@ use crate::{App, SortColumn, gui::input_overlay::draw_input_overlay};
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(70),
-            Constraint::Percentage(30),
-        ])
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
         .split(area);
 
     app.table_area = chunks[0];
-    
+
     let flat = app.flatten_processes().clone();
     let visible_rows = chunks[0].height.saturating_sub(4) as usize;
-    
+
     let start = app.viewport_offset;
     let end = (start + visible_rows).min(flat.len());
     let visible_processes = &flat[start..end];
@@ -35,7 +32,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         .map(|(i, (depth, _))| {
             let actual_idx = start + i;
             let node = app.get_process_at_flat_index(actual_idx).unwrap();
-            
+
             let indent = "  ".repeat(*depth);
             let expand_indicator = if !node.children.is_empty() {
                 if node.expanded { "▼ " } else { "▶ " }
@@ -43,15 +40,22 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
                 "  "
             };
             let name = format!("{}{}{}", indent, expand_indicator, node.info.name);
-            
+
             let is_selected = Some(actual_idx) == app.table_state.selected();
             let style = if is_selected {
-                Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .bg(Color::DarkGray)
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().bg(Color::Black).fg(Color::White)
             };
 
-            let line_num = format!("{:>width$}", actual_idx + 1, width = line_num_width as usize);
+            let line_num = format!(
+                "{:>width$}",
+                actual_idx + 1,
+                width = line_num_width as usize
+            );
 
             Row::new(vec![
                 line_num,
@@ -70,14 +74,36 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let cpu_header = get_header_with_indicator("CPU%", SortColumn::Cpu, app);
     let mem_header = get_header_with_indicator("Memory", SortColumn::Memory, app);
 
-    let header = Row::new(vec!["#", &pid_header, &name_header, &cpu_header, &mem_header])
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD).bg(Color::Black));
+    let header = Row::new(vec![
+        "#",
+        &pid_header,
+        &name_header,
+        &cpu_header,
+        &mem_header,
+    ])
+    .style(
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD)
+            .bg(Color::Black),
+    );
 
-    let title = if app.user_filter.is_some() || app.status_filter.is_some() || 
-                  app.cpu_threshold.is_some() || app.memory_threshold.is_some() {
-        format!("Processes ({}/{}) [FILTERED]", flat.len(), app.system.processes().len())
+    let title = if app.user_filter.is_some()
+        || app.status_filter.is_some()
+        || app.cpu_threshold.is_some()
+        || app.memory_threshold.is_some()
+    {
+        format!(
+            "Processes ({}/{}) [FILTERED]",
+            flat.len(),
+            app.system.processes().len()
+        )
     } else {
-        format!("Processes ({}/{})", flat.len(), app.system.processes().len())
+        format!(
+            "Processes ({}/{})",
+            flat.len(),
+            app.system.processes().len()
+        )
     };
 
     let table = Table::new(
@@ -95,7 +121,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         Block::default()
             .borders(Borders::ALL)
             .title(title)
-            .style(Style::default().bg(Color::Black))
+            .style(Style::default().bg(Color::Black)),
     )
     .style(Style::default().bg(Color::Black));
 
@@ -109,7 +135,6 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     f.render_widget(table, chunks[0]);
     draw_detail_panel(f, app, chunks[1]);
 
-    // Draw input overlays
     draw_input_overlay(f, app);
 }
 
@@ -124,13 +149,15 @@ fn get_header_with_indicator(name: &str, column: SortColumn, app: &App) -> Strin
 
 fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Clear, area);
-    
-    let selected_node = app.table_state.selected()
+
+    let selected_node = app
+        .table_state
+        .selected()
         .and_then(|idx| app.get_process_at_flat_index(idx));
 
     let content = if let Some(node) = selected_node {
         let process = app.system.process(node.info.pid);
-        
+
         let mut lines = vec![
             Line::from(vec![
                 Span::styled("PID: ", Style::default().fg(Color::Cyan)),
@@ -145,18 +172,25 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::styled("CPU Usage: ", Style::default().fg(Color::Cyan)),
                 Span::styled(
                     format!("{:.2}%", node.info.cpu_usage),
-                    Style::default().fg(if node.info.cpu_usage > 50.0 { Color::Red } else { Color::Green })
+                    Style::default().fg(if node.info.cpu_usage > 50.0 {
+                        Color::Red
+                    } else {
+                        Color::Green
+                    }),
                 ),
             ]),
             Line::from(vec![
                 Span::styled("Memory: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0)),
+                Span::raw(format!(
+                    "{:.2} MB",
+                    node.info.memory as f64 / 1024.0 / 1024.0
+                )),
             ]),
         ];
 
         if let Some(proc) = process {
             lines.push(Line::from(""));
-            
+
             if let Some(parent_pid) = proc.parent() {
                 lines.push(Line::from(vec![
                     Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
@@ -178,20 +212,26 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
 
             lines.push(Line::from(vec![
                 Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:.2} MB", proc.virtual_memory() as f64 / 1024.0 / 1024.0)),
+                Span::raw(format!(
+                    "{:.2} MB",
+                    proc.virtual_memory() as f64 / 1024.0 / 1024.0
+                )),
             ]));
 
             lines.push(Line::from(""));
             if let Some((read, write)) = app.calculate_process_io() {
-                lines.push(Line::from(vec![
-                    Span::styled("Process I/O:", Style::default().fg(Color::Cyan)),
-                ]));
-                lines.push(Line::from(vec![
-                    Span::raw(format!("  Read: {:.2} MB", read as f64 / 1024.0 / 1024.0)),
-                ]));
-                lines.push(Line::from(vec![
-                    Span::raw(format!("  Write: {:.2} MB", write as f64 / 1024.0 / 1024.0)),
-                ]));
+                lines.push(Line::from(vec![Span::styled(
+                    "Process I/O:",
+                    Style::default().fg(Color::Cyan),
+                )]));
+                lines.push(Line::from(vec![Span::raw(format!(
+                    "  Read: {:.2} MB",
+                    read as f64 / 1024.0 / 1024.0
+                ))]));
+                lines.push(Line::from(vec![Span::raw(format!(
+                    "  Write: {:.2} MB",
+                    write as f64 / 1024.0 / 1024.0
+                ))]));
             } else {
                 lines.push(Line::from(vec![
                     Span::styled("Process I/O: ", Style::default().fg(Color::Cyan)),
@@ -211,8 +251,12 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             ]));
 
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled("Command:", Style::default().fg(Color::Yellow))));
-            let cmd_parts: Vec<String> = proc.cmd()
+            lines.push(Line::from(Span::styled(
+                "Command:",
+                Style::default().fg(Color::Yellow),
+            )));
+            let cmd_parts: Vec<String> = proc
+                .cmd()
                 .iter()
                 .map(|s| s.to_string_lossy().to_string())
                 .collect();
@@ -237,7 +281,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             Line::from(""),
             Line::from(Span::styled(
                 "No process selected",
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(Color::DarkGray),
             )),
         ]
     };
@@ -247,7 +291,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Process Details")
-                .style(Style::default().fg(Color::White).bg(Color::Black))
+                .style(Style::default().fg(Color::White).bg(Color::Black)),
         )
         .style(Style::default().fg(Color::White).bg(Color::Black));
 

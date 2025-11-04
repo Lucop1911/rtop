@@ -16,11 +16,11 @@ impl App {
         let cpu_number = self.system.cpus().len() as f32;
         for (pid, process) in self.system.processes() {
             let user_id = process.user_id().map(|uid| **uid);
-            
+
             let info = ProcessInfo {
                 pid: *pid,
                 name: process.name().to_string_lossy().to_string(),
-                cpu_usage: process.cpu_usage() / cpu_number, // Divido per il numero di cores per avere un valore tra 0-100 
+                cpu_usage: process.cpu_usage() / cpu_number, // Divido per il numero di cores per avere un valore tra 0-100
                 memory: process.memory(),
                 user_id,
                 status: format!("{:?}", process.status()),

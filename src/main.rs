@@ -17,15 +17,15 @@ use ratatui::{
     widgets::TableState,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
     io,
-    time::{Duration, Instant},
     sync::{Arc, Mutex},
     thread,
+    time::{Duration, Instant},
 };
 use sysinfo::{Networks, Pid, System};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 enum SortColumn {
@@ -125,7 +125,6 @@ impl App {
 
         let networks = Networks::new_with_refreshed_list();
 
-        // Load preferences
         let preferences = Self::load_preferences().unwrap_or_default();
 
         let mut app = Self {
@@ -188,7 +187,7 @@ fn main() -> Result<()> {
                 app.refresh();
                 app.update_interval
             };
-            
+
             // Sleep in small chunks so we can exit quickly
             let chunk_size = Duration::from_millis(50);
             let mut remaining = sleep_duration;
@@ -225,17 +224,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app<B: Backend>(
-    terminal: &mut Terminal<B>,
-    app: Arc<Mutex<App>>,
-) -> Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: Arc<Mutex<App>>) -> Result<()> {
     loop {
         {
             let mut app_guard = app.lock().unwrap();
             terminal.draw(|f| ui(f, &mut app_guard))?;
         }
-        
-        if event::poll(Duration::from_millis(50))? { 
+
+        if event::poll(Duration::from_millis(50))? {
             match event::read()? {
                 Event::Key(key) => {
                     let mut app_guard = app.lock().unwrap();

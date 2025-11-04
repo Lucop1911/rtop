@@ -6,20 +6,27 @@ use ratatui::{
     widgets::{Block, Borders, Gauge, Paragraph},
 };
 
-use crate::{App, gui::input_overlay::draw_input_overlay, helpers::{memory, network, utils::{calculate_avg_cpu, generate_sparkline, generate_sparkline_with_max}}};
+use crate::{
+    App,
+    gui::input_overlay::draw_input_overlay,
+    helpers::{
+        memory, network,
+        utils::{calculate_avg_cpu, generate_sparkline, generate_sparkline_with_max},
+    },
+};
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
     let num_cpus = app.system.cpus().len();
     let rows_per_column = (num_cpus + 1) / 2;
     let cpu_cores_height = (rows_per_column * 2) as u16;
     let cpu_total_height = 3 + 2 + cpu_cores_height;
-    
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(cpu_total_height),  // CPU
-            Constraint::Length(7),                 // Memory
-            Constraint::Min(5),                    // Networ
+            Constraint::Length(cpu_total_height), // CPU
+            Constraint::Length(7),                // Memory
+            Constraint::Min(5),                   // Networ
         ])
         .split(area);
 
@@ -44,20 +51,14 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
 
     let cpu_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Min(1),
-        ])
+        .constraints([Constraint::Length(3), Constraint::Min(1)])
         .split(area);
 
     f.render_widget(cpu_gauge, cpu_chunks[0]);
 
     let per_core_cols = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(cpu_chunks[1]);
 
     let cpus = app.system.cpus();
@@ -66,10 +67,19 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
     let build_core_lines = |slice: &[sysinfo::Cpu]| {
         let mut lines = Vec::new();
         for (i, cpu) in slice.iter().enumerate() {
-            let global_idx = app.system.cpus().iter().position(|c| std::ptr::eq(c, cpu)).unwrap_or(i);
+            let global_idx = app
+                .system
+                .cpus()
+                .iter()
+                .position(|c| std::ptr::eq(c, cpu))
+                .unwrap_or(i);
             let usage = cpu.cpu_usage();
 
-            let history = app.cpu_history.get(global_idx).map(|h| &h[..]).unwrap_or(&[]);
+            let history = app
+                .cpu_history
+                .get(global_idx)
+                .map(|h| &h[..])
+                .unwrap_or(&[]);
             let sparkline = if !history.is_empty() {
                 generate_sparkline(history)
             } else {
@@ -85,7 +95,10 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
             };
 
             lines.push(Line::from(vec![
-                Span::styled(format!("CPU{:2}: ", global_idx), Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    format!("CPU{:2}: ", global_idx),
+                    Style::default().fg(Color::Cyan),
+                ),
                 Span::styled(format!("{:5.1}%", usage), Style::default().fg(color)),
                 Span::raw("  "),
                 Span::styled(sparkline, Style::default().fg(Color::Blue)),
@@ -100,27 +113,31 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
     let right_lines = build_core_lines(&cpus[half..]);
 
     let left_widget = Paragraph::new(left_lines)
-        .block(Block::default().borders(Borders::ALL).title("Per-Core Usage (1/2)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Per-Core Usage (1/2)"),
+        )
         .alignment(Alignment::Left);
 
     let right_widget = Paragraph::new(right_lines)
-        .block(Block::default().borders(Borders::ALL).title("Per-Core Usage (2/2)"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Per-Core Usage (2/2)"),
+        )
         .alignment(Alignment::Left);
 
     f.render_widget(left_widget, per_core_cols[0]);
     f.render_widget(right_widget, per_core_cols[1]);
 }
 
-
 fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
     let (used_mem, total_mem, mem_percent) = memory::calculate_memory(app);
 
     let mem_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Length(4),
-        ])
+        .constraints([Constraint::Length(3), Constraint::Length(4)])
         .split(area);
 
     let mem_gauge = Gauge::default()
@@ -136,7 +153,7 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(mem_gauge, mem_chunks[0]);
 
     let history_width = mem_chunks[1].width.saturating_sub(4) as usize;
-    
+
     let mem_sparkline = if app.memory_history.is_empty() {
         "▁".repeat(history_width.min(60))
     } else if app.memory_history.len() >= history_width {
@@ -151,12 +168,10 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
         generate_sparkline_with_max(&mem_data, total_mem as f32)
     };
 
-    let history_text = vec![
-        Line::from(vec![
-            Span::styled("History: ", Style::default().fg(Color::Cyan)),
-            Span::styled(mem_sparkline, Style::default().fg(Color::Green)),
-        ]),
-    ];
+    let history_text = vec![Line::from(vec![
+        Span::styled("History: ", Style::default().fg(Color::Cyan)),
+        Span::styled(mem_sparkline, Style::default().fg(Color::Green)),
+    ])];
 
     let history = Paragraph::new(history_text)
         .block(Block::default().borders(Borders::ALL).title("Memory Trend"))
@@ -170,10 +185,7 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
 
     let net_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(6),
-            Constraint::Min(1),
-        ])
+        .constraints([Constraint::Length(6), Constraint::Min(1)])
         .split(area);
 
     let inner_width = net_chunks[0].width.saturating_sub(4) as usize; // Remove borders
@@ -184,7 +196,7 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         if history.is_empty() {
             return "▁".repeat(sparkline_width.min(60));
         }
-        
+
         if history.len() >= sparkline_width {
             let start_idx = history.len() - sparkline_width;
             let sampled: Vec<f32> = history[start_idx..]
@@ -231,7 +243,10 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         .map(|(name, rx, tx)| {
             Line::from(vec![
                 Span::styled(format!("{:12}: ", name), Style::default().fg(Color::Cyan)),
-                Span::styled(format!("↓ {:8.2} MB", rx), Style::default().fg(Color::Green)),
+                Span::styled(
+                    format!("↓ {:8.2} MB", rx),
+                    Style::default().fg(Color::Green),
+                ),
                 Span::raw(" / "),
                 Span::styled(format!("↑ {:8.2} MB", tx), Style::default().fg(Color::Blue)),
             ])
@@ -239,7 +254,11 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         .collect();
 
     let interfaces = Paragraph::new(net_info)
-        .block(Block::default().borders(Borders::ALL).title("Per-Interface Stats"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Per-Interface Stats"),
+        )
         .alignment(Alignment::Left);
 
     f.render_widget(interfaces, net_chunks[1]);

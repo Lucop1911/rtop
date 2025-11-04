@@ -1,6 +1,6 @@
-use std::{fs, path::PathBuf};
-use anyhow::Result;
 use crate::{App, Preferences};
+use anyhow::Result;
+use std::{fs, path::PathBuf};
 
 impl App {
     pub fn config_path() -> PathBuf {

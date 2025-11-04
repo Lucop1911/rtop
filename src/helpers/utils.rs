@@ -1,5 +1,5 @@
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 use crate::{App, ProcessNode};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 impl App {
     pub fn force_refresh(&mut self) {
@@ -43,7 +43,7 @@ impl App {
             let query_lower = self.search_query.to_lowercase();
             let name_lower = node.info.name.to_lowercase();
             let pid_str = node.info.pid.to_string();
-            
+
             if !name_lower.contains(&query_lower) && !pid_str.contains(&self.search_query) {
                 return;
             }
@@ -121,7 +121,7 @@ impl App {
                 self.ensure_visible(i);
             }
         } else {
-            // Build cache only if needed
+            // Buildo la cache solo se necessario
             let flat_len = self.flatten_processes().len();
             if flat_len > 0 {
                 let i = self
@@ -164,8 +164,7 @@ impl App {
 
         if index < self.viewport_offset {
             self.viewport_offset = index;
-        }
-        else if index >= self.viewport_offset + visible_rows {
+        } else if index >= self.viewport_offset + visible_rows {
             self.viewport_offset = index.saturating_sub(visible_rows - 1);
         }
     }
@@ -181,7 +180,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let last_idx = flat_len - 1;
             self.table_state.select(Some(last_idx));
@@ -196,7 +195,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
@@ -212,7 +211,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
@@ -250,14 +249,14 @@ pub fn generate_sparkline(data: &[f32]) -> String {
     if data.is_empty() {
         return String::new();
     }
-    
+
     let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
     let max = data.iter().cloned().fold(0.0f32, f32::max);
-    
+
     if max == 0.0 {
         return "▁".repeat(data.len());
     }
-    
+
     data.iter()
         .map(|&val| {
             let normalized = (val / max * (chars.len() - 1) as f32) as usize;
@@ -270,13 +269,13 @@ pub fn generate_sparkline_with_max(data: &[f32], max_value: f32) -> String {
     if data.is_empty() {
         return String::new();
     }
-    
+
     let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    
+
     if max_value == 0.0 {
         return "▁".repeat(data.len());
     }
-    
+
     data.iter()
         .map(|&val| {
             let normalized = ((val / max_value) * (chars.len() - 1) as f32) as usize;
