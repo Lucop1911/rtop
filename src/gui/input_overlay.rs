@@ -22,7 +22,7 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::raw("Enter interval (100-10000 ms): "),
+                    Span::raw("Enter interval (100-6000 ms): "),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
                 ]),
                 Line::from(""),
