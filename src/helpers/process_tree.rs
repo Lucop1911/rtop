@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use sysinfo::Pid;
 
 use crate::{App, ProcessInfo};
@@ -9,6 +9,7 @@ impl App {
 
         let mut process_infos: HashMap<Pid, ProcessInfo> = HashMap::new();
         let mut children_map: HashMap<Pid, Vec<Pid>> = HashMap::new();
+        let mut has_parent: HashSet<Pid> = HashSet::new();
 
         let process_count = self.system.processes().len();
         process_infos.reserve(process_count);
@@ -20,7 +21,7 @@ impl App {
             let info = ProcessInfo {
                 pid: *pid,
                 name: process.name().to_string_lossy().to_string(),
-                cpu_usage: process.cpu_usage() / cpu_number, // Divido per il numero di cores per avere un valore tra 0-100
+                cpu_usage: process.cpu_usage() / cpu_number,
                 memory: process.memory(),
                 user_id,
                 status: format!("{:?}", process.status()),
@@ -32,16 +33,49 @@ impl App {
                     .entry(parent_pid)
                     .or_insert_with(Vec::new)
                     .push(*pid);
+                has_parent.insert(*pid);
             }
         }
 
-        let mut roots = Vec::with_capacity(process_count);
+        // Processi root del sistema da skippare (systemd and kthreadd)
+        let skip_pids: HashSet<u32> = [1, 2].iter().copied().collect();
+
+        let mut roots = Vec::new();
+
+        // Faccio diventare root i processi senza un parent e i figli diretti dei processi 1 e 2 (systemd e kthreadd)
         for (pid, _info) in &process_infos {
-            roots.push(self.build_node(*pid, &process_infos, &children_map));
+            let pid_u32 = pid.as_u32();
+
+            if skip_pids.contains(&pid_u32) {
+                continue;
+            }
+
+            let should_be_root = if !has_parent.contains(pid) {
+                true
+            } else {
+                if let Some(process) = self.system.process(*pid) {
+                    if let Some(parent_pid) = process.parent() {
+                        skip_pids.contains(&parent_pid.as_u32())
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            };
+
+            if should_be_root {
+                roots.push(self.build_node(*pid, &process_infos, &children_map));
+            }
         }
 
         self.sort_processes(&mut roots);
         self.processes = roots;
+
+        // Aggiorno expanded_pids in modo che contenga processi ancora esistenti
+        let existing_pids: HashSet<Pid> = process_infos.keys().copied().collect();
+        self.expanded_pids
+            .retain(|pid, _| existing_pids.contains(pid));
 
         self.cached_flat_processes = None;
 

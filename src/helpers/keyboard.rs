@@ -156,7 +156,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             }
             KeyCode::Char('-') | KeyCode::Char('_') => {
                 let new_interval = app.update_interval + Duration::from_millis(100);
-                app.update_interval = new_interval.min(Duration::from_millis(10000));
+                app.update_interval = new_interval.min(Duration::from_millis(6000));
                 app.preferences.update_interval_ms = app.update_interval.as_millis() as u64;
             }
             KeyCode::PageDown => {
@@ -175,7 +175,7 @@ fn handle_update_interval_input(app: &mut App, code: KeyCode) -> Result<bool> {
     match code {
         KeyCode::Enter => {
             if let std::result::Result::Ok(ms) = app.input_buffer.parse::<u64>() {
-                let ms = ms.clamp(100, 10000);
+                let ms = ms.clamp(100, 6000);
                 app.update_interval = Duration::from_millis(ms);
                 app.preferences.update_interval_ms = ms;
                 app.save_preferences().ok();
@@ -195,6 +195,7 @@ fn handle_update_interval_input(app: &mut App, code: KeyCode) -> Result<bool> {
         }
         _ => {}
     }
+    app.force_refresh();
     Ok(false)
 }
 
@@ -230,7 +231,6 @@ fn handle_user_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
-            app.force_refresh();
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;

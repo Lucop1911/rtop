@@ -103,7 +103,7 @@ struct App {
     header_area: Rect,
     update_interval: Duration,
     viewport_offset: usize,
-    cached_flat_processes: Option<Vec<(usize, usize)>>,
+    cached_flat_processes: Option<Vec<(usize, Vec<usize>)>>,
     input_mode: InputMode,
     input_buffer: String,
     pending_kill_pid: Option<Pid>,
@@ -125,7 +125,8 @@ impl App {
 
         let networks = Networks::new_with_refreshed_list();
 
-        let preferences = Self::load_preferences().unwrap_or_default();
+        let mut preferences = Self::load_preferences().unwrap_or_default();
+        preferences.update_interval_ms = preferences.update_interval_ms.clamp(100, 6000);
 
         let mut app = Self {
             system,
@@ -188,7 +189,7 @@ fn main() -> Result<()> {
                 app.update_interval
             };
 
-            // Sleep in small chunks so we can exit quickly
+            // Chunk minimi per uscire più velocemente
             let chunk_size = Duration::from_millis(50);
             let mut remaining = sleep_duration;
             while remaining > Duration::ZERO {
