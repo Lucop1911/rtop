@@ -274,6 +274,26 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::styled("Children: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{}", node.children.len())),
             ]));
+
+            lines.push(Line::from(""));
+            if let Some(parent_pid) = proc.parent() {
+                if let Some(parent_proc) = app.system.process(parent_pid) {
+                    lines.push(Line::from(vec![
+                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                        Span::raw(format!("{}", parent_proc.name().to_string_lossy().to_string()))
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                        Span::styled("Unknown", Style::default().fg(Color::Cyan))
+                    ]));
+                }
+            } else {
+                lines.push(Line::from(vec![
+                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                        Span::styled("None", Style::default().fg(Color::Cyan))
+                    ]));
+            }
         }
         lines
     } else {
