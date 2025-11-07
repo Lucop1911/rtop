@@ -9,13 +9,11 @@ use ratatui::{
 use crate::{App, gui::input_overlay::draw_input_overlay};
 
 pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
-    // --- Split vertically: title + content ---
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(5)])
         .split(area);
 
-    // --- Title section ---
     let title_block = Block::default().borders(Borders::ALL).title(Span::styled(
         " Help / Cheatsheet ",
         Style::default()
@@ -30,7 +28,6 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
 
     f.render_widget(title_paragraph, chunks[0]);
 
-    // --- Data ---
     let bindings = vec![
         ("Navigation", ""),
         ("↑/↓", "Move selection up/down"),
@@ -68,11 +65,9 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         ("Ctrl+C", "Force quit (saves preferences)"),
     ];
 
-    // --- Split into two halves for layout ---
     let mid = (bindings.len() + 1) / 2;
     let (left_bindings, right_bindings) = bindings.split_at(mid);
 
-    // --- Helper to make one side’s rows ---
     fn make_rows<'a>(left: &'a [(&'a str, &'a str)], right: &'a [(&'a str, &'a str)]) -> Vec<Row<'a>> {
         let max_len = left.len().max(right.len());
         let mut rows = Vec::with_capacity(max_len);
@@ -81,7 +76,6 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
             let (lk, ld) = left.get(i).copied().unwrap_or(("", ""));
             let (rk, rd) = right.get(i).copied().unwrap_or(("", ""));
 
-            // Each Row has 5 spans: key | desc | space | key | desc
             rows.push(Row::new(vec![
                 Span::styled(
                     lk,
@@ -104,7 +98,6 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         rows
     }
 
-    // --- Make combined table ---
     let rows = make_rows(left_bindings, right_bindings);
 
     let table = Table::new(
