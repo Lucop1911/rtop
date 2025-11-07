@@ -8,51 +8,81 @@ on:
         required: true
 
 permissions:
-  contents: write  # Required to create releases and upload assets
+  contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: rtop
+            artifact_name: rtop-linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: rtop.exe
+            artifact_name: rtop-windows-x86_64.exe
+    
+    runs-on: ${{ matrix.os }}
+    
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      # Step 2: Set up Rust
+      
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           override: true
-
-      # Step 3: Cache cargo dependencies
+          target: ${{ matrix.target }}
+      
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-
-      # Step 4: Build the release binary
+      
       - name: Build release
-        run: cargo build --release
-
-      # Step 5: Copy the binary to dist folder
-      - name: Prepare binary
+        run: cargo build --release --target ${{ matrix.target }}
+      
+      - name: Prepare binary (Linux/macOS)
+        if: matrix.os != 'windows-latest'
         run: |
           mkdir -p dist
-          cp target/release/rtop dist/rtop
-
-      # Step 6: Create GitHub release and upload the binary
+          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} dist/${{ matrix.artifact_name }}
+      
+      - name: Prepare binary (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.target }}/release/${{ matrix.binary_name }} dist/${{ matrix.artifact_name }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.tag }}
-          files: dist/rtop
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
