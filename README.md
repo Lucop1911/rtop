@@ -4,6 +4,9 @@ A fast, terminal-based system monitoring tool built with **Rust** and **ratatui*
 
 ---
 
+![Processes image](.github/images/processes.png)
+![Stats image](.github/images/stats.png)
+
 ## Prerequisites
 
 - **Rust** (v1.80+ recommended) and Cargo → [Install Rust](https://www.rust-lang.org/tools/install)
