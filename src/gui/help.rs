@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect, Alignment},
     style::{Color, Modifier, Style},
     text::Span,
     widgets::{Block, Borders, Paragraph, Row, Table},
@@ -9,11 +9,13 @@ use ratatui::{
 use crate::{App, gui::input_overlay::draw_input_overlay};
 
 pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
+    // --- Split vertically: title + content ---
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(5)])
         .split(area);
 
+    // --- Title section ---
     let title_block = Block::default().borders(Borders::ALL).title(Span::styled(
         " Help / Cheatsheet ",
         Style::default()
@@ -23,11 +25,12 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
 
     let title_paragraph = Paragraph::new("List of available keybindings")
         .block(title_block)
-        .alignment(ratatui::layout::Alignment::Center)
+        .alignment(Alignment::Center)
         .style(Style::default().fg(Color::White));
 
     f.render_widget(title_paragraph, chunks[0]);
 
+    // --- Data ---
     let bindings = vec![
         ("Navigation", ""),
         ("↑/↓", "Move selection up/down"),
@@ -65,55 +68,92 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         ("Ctrl+C", "Force quit (saves preferences)"),
     ];
 
-    let rows: Vec<Row> = bindings
-        .iter()
-        .map(|(key, desc)| {
-            if key.is_empty() {
-                Row::new(vec![
-                    Span::raw(""),
-                    Span::styled(
-                        *desc,
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                ])
-            } else {
-                Row::new(vec![
-                    Span::styled(
-                        *key,
-                        Style::default()
-                            .fg(Color::Cyan)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::raw(*desc),
-                ])
-            }
-        })
-        .collect();
+    // --- Split into two halves for layout ---
+    let mid = (bindings.len() + 1) / 2;
+    let (left_bindings, right_bindings) = bindings.split_at(mid);
 
-    let table = Table::new(rows, [Constraint::Length(25), Constraint::Percentage(75)])
-        .header(Row::new(vec![
-            Span::styled(
-                "Key",
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                "Action",
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ]))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Keybindings ")
-                .title_alignment(ratatui::layout::Alignment::Center),
-        )
-        .style(Style::default().fg(Color::White));
+    // --- Helper to make one side’s rows ---
+    fn make_rows<'a>(left: &'a [(&'a str, &'a str)], right: &'a [(&'a str, &'a str)]) -> Vec<Row<'a>> {
+        let max_len = left.len().max(right.len());
+        let mut rows = Vec::with_capacity(max_len);
+
+        for i in 0..max_len {
+            let (lk, ld) = left.get(i).copied().unwrap_or(("", ""));
+            let (rk, rd) = right.get(i).copied().unwrap_or(("", ""));
+
+            // Each Row has 5 spans: key | desc | space | key | desc
+            rows.push(Row::new(vec![
+                Span::styled(
+                    lk,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(ld),
+                Span::raw(" "),
+                Span::styled(
+                    rk,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(rd),
+            ]));
+        }
+
+        rows
+    }
+
+    // --- Make combined table ---
+    let rows = make_rows(left_bindings, right_bindings);
+
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(20),
+            Constraint::Length(35),
+            Constraint::Length(10),
+            Constraint::Length(20),
+            Constraint::Min(25),
+        ],
+    )
+    .header(Row::new(vec![
+        Span::styled(
+            "Key",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            "Action",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            " ",
+            Style::default()
+        ),
+        Span::styled(
+            "Key",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            "Action",
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ]))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Keybindings ")
+            .title_alignment(Alignment::Center),
+    )
+    .style(Style::default().fg(Color::White));
 
     f.render_widget(table, chunks[1]);
 
