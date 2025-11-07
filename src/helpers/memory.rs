@@ -1,4 +1,6 @@
 use crate::App;
+
+#[cfg(not(target_os = "windows"))]
 use procfs;
 
 #[cfg(target_os = "windows")]
