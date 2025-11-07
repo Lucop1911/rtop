@@ -5,11 +5,10 @@ use procfs;
 
 #[cfg(target_os = "windows")]
 use windows::Win32::{
-    Foundation::HANDLE,
+    Foundation::CloseHandle,
     System::{
-        ProcessStatus::GetProcessIoCounters,
         Threading::{OpenProcess, PROCESS_QUERY_INFORMATION},
-        SystemInformation::IO_COUNTERS,
+        IO::{GetProcessIoCounters, IO_COUNTERS},
     },
 };
 
@@ -39,8 +38,6 @@ impl App {
 
     #[cfg(target_os = "windows")]
     pub fn calculate_process_io(&self) -> Option<(u64, u64)> {
-        use windows::Win32::Foundation::CloseHandle;
-        
         if let Some(selected) = self.table_state.selected() {
             if let Some(node) = self.get_process_at_flat_index(selected) {
                 let pid = node.info.pid.as_u32();
