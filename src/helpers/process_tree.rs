@@ -16,17 +16,7 @@ impl App {
 
         let cpu_number = self.system.cpus().len() as f32;
         for (pid, process) in self.system.processes() {
-            #[cfg(not(target_os = "windows"))]
             let user_id = process.user_id().map(|uid| **uid);
-            
-            #[cfg(target_os = "windows")]
-            let user_id = process.user_id().map(|sid| {
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                sid.to_string().hash(&mut hasher);
-                hasher.finish() as u32
-            });
 
             let info = ProcessInfo {
                 pid: *pid,
@@ -47,7 +37,7 @@ impl App {
             }
         }
 
-        // Processi root del sistema da skippare (systemd and kthreadd on Linux)
+        // Processi root del sistema da skippare (systemd and kthreadd)
         let skip_pids: HashSet<u32> = [1, 2].iter().copied().collect();
 
         let mut roots = Vec::new();
