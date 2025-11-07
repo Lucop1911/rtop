@@ -6,10 +6,7 @@ use procfs;
 #[cfg(target_os = "windows")]
 use windows::Win32::{
     Foundation::CloseHandle,
-    System::{
-        Threading::{OpenProcess, PROCESS_QUERY_INFORMATION},
-        IO::{GetProcessIoCounters, IO_COUNTERS},
-    },
+    System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, GetProcessIoCounters, IO_COUNTERS},
 };
 
 pub fn calculate_memory(app: &App) -> (f64, f64, u16) {
