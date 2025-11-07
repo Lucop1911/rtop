@@ -12,81 +12,41 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            binary_name: rtop
-            artifact_name: linux-build
-            release_name: rtop
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            binary_name: rtop.exe
-            artifact_name: windows-build
-            release_name: rtop.exe
-    
-    runs-on: ${{ matrix.os }}
-    
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-      
+
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           profile: minimal
           override: true
-          target: ${{ matrix.target }}
-      
+
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      
+
       - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
-      
-      - name: Prepare binary (Linux/macOS)
-        if: matrix.os != 'windows-latest'
+        run: cargo build --release
+
+      - name: Prepare binary
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/${{ matrix.binary_name }} dist/${{ matrix.release_name }}
-      
-      - name: Prepare binary (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target/${{ matrix.target }}/release/${{ matrix.binary_name }} dist/${{ matrix.release_name }}
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.release_name }}
-  
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      
+          cp target/release/rtop dist/rtop
+
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.tag }}
-          files: |
-            artifacts/linux-build/rtop
-            artifacts/windows-build/rtop.exe
+          files: dist/rtop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
