@@ -18,7 +18,9 @@ impl App {
                     self.input_mode = crate::InputMode::ConfirmKill;
                 } else {
                     if let Some(process) = self.system.process(pid) {
-                        process.kill();
+                        if !process.kill() {
+                            eprintln!("Failed to kill process {}", pid.as_u32());
+                        }
                     }
                     self.force_refresh();
                 }
@@ -28,53 +30,39 @@ impl App {
     }
 
     pub fn suspend_process(&mut self) -> Result<()> {
-        #[cfg(unix)]
-        {
-            if let Some(selected) = self.table_state.selected() {
-                if let Some(node) = self.get_process_at_flat_index(selected) {
-                    let pid = node.info.pid.as_u32() as i32;
-                    unsafe {
-                        libc::kill(pid, libc::SIGSTOP);
-                    }
+        if let Some(selected) = self.table_state.selected() {
+            if let Some(node) = self.get_process_at_flat_index(selected) {
+                let pid = node.info.pid.as_u32() as i32;
+                
+                let result = unsafe { libc::kill(pid, libc::SIGSTOP) };
+                
+                if result == -1 {
+                    let errno = unsafe { *libc::__errno_location() };
+                    eprintln!("Failed to suspend process {}: errno {}", pid, errno);
+                } else {
                     self.force_refresh();
                 }
             }
-        }
+        }        
         Ok(())
     }
 
     pub fn resume_process(&mut self) -> Result<()> {
-        #[cfg(unix)]
-        {
-            if let Some(selected) = self.table_state.selected() {
-                if let Some(node) = self.get_process_at_flat_index(selected) {
-                    let pid = node.info.pid.as_u32() as i32;
-                    unsafe {
-                        libc::kill(pid, libc::SIGCONT);
-                    }
+
+        if let Some(selected) = self.table_state.selected() {
+            if let Some(node) = self.get_process_at_flat_index(selected) {
+                let pid = node.info.pid.as_u32() as i32;
+                
+                let result = unsafe { libc::kill(pid, libc::SIGCONT) };
+                
+                if result == -1 {
+                    let errno = unsafe { *libc::__errno_location() };
+                    eprintln!("Failed to resume process {}: errno {}", pid, errno);
+                } else {
                     self.force_refresh();
                 }
             }
         }
         Ok(())
     }
-
 }
-
-/*
-impl App {
-    pub fn kill_selected(&mut self) -> Result<()> {
-        if let Some(selected) = self.table_state.selected() {
-            if let Some(node) = self.get_process_at_flat_index(selected) {
-                let pid = node.info.pid;
-                if let Some(process) = self.system.process(pid) {
-                    process.kill();
-                }
-                // Refresh immediato
-                self.force_refresh();
-            }
-        }
-        Ok(())
-    }
-}    
-*/
