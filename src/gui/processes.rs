@@ -1,3 +1,4 @@
+use chrono::{DateTime, TimeZone, Utc};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -9,10 +10,32 @@ use ratatui::{
 use crate::{App, SortColumn, gui::input_overlay::draw_input_overlay};
 
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
-        .split(area);
+    let min_width_needed = 10 + 10 + 20 + 12 + 15; // line# + PID + Name(min) + CPU + Memory
+
+    let (table_percent, detail_percent) = if area.width < min_width_needed + 30 {
+        if area.width < min_width_needed {
+            (100, 0)
+        } else {
+            let table_width = min_width_needed;
+            let table_pct = ((table_width as f32 / area.width as f32) * 100.0) as u16;
+            (table_pct.min(100), 100u16.saturating_sub(table_pct))
+        }
+    } else {
+        (70, 30)
+    };
+
+    let chunks = if detail_percent == 0 {
+        vec![area]
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(table_percent),
+                Constraint::Percentage(detail_percent),
+            ])
+            .split(area)
+            .to_vec()
+    };
 
     app.table_area = chunks[0];
 
@@ -25,6 +48,19 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
 
     let max_line_num = flat.len();
     let line_num_width = max_line_num.to_string().len().max(3) as u16;
+
+    let available_width = chunks[0].width.saturating_sub(4);
+
+    let pid_width = 10u16;
+    let cpu_width = 12u16;
+    let mem_width = 15u16;
+    let fixed_total = line_num_width + 1 + pid_width + cpu_width + mem_width;
+
+    let name_width = if available_width > fixed_total {
+        available_width.saturating_sub(fixed_total).max(10)
+    } else {
+        10
+    };
 
     let rows: Vec<Row> = visible_processes
         .iter()
@@ -39,7 +75,14 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             } else {
                 "  "
             };
-            let name = format!("{}{}{}", indent, expand_indicator, node.info.name);
+            let name_raw = format!("{}{}{}", indent, expand_indicator, node.info.name);
+
+            let max_name_len = name_width.saturating_sub(3) as usize;
+            let name = if name_raw.len() > max_name_len {
+                format!("{}...", &name_raw[..max_name_len.saturating_sub(3)])
+            } else {
+                name_raw
+            };
 
             let is_selected = Some(actual_idx) == app.table_state.selected();
             let style = if is_selected {
@@ -68,7 +111,6 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         })
         .collect();
 
-    // Headers con indicatori
     let pid_header = get_header_with_indicator("PID", SortColumn::Pid, app);
     let name_header = get_header_with_indicator("Name", SortColumn::Name, app);
     let cpu_header = get_header_with_indicator("CPU%", SortColumn::Cpu, app);
@@ -110,10 +152,10 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         rows,
         [
             Constraint::Length(line_num_width + 1),
-            Constraint::Length(10),
-            Constraint::Percentage(50),
-            Constraint::Length(12),
-            Constraint::Length(15),
+            Constraint::Length(pid_width),
+            Constraint::Length(name_width),
+            Constraint::Length(cpu_width),
+            Constraint::Length(mem_width),
         ],
     )
     .header(header)
@@ -133,7 +175,10 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     };
 
     f.render_widget(table, chunks[0]);
-    draw_detail_panel(f, app, chunks[1]);
+
+    if chunks.len() > 1 && detail_percent > 0 {
+        draw_detail_panel(f, app, chunks[1]);
+    }
 
     draw_input_overlay(f, app);
 }
@@ -245,9 +290,14 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::raw(format!("{}s", proc.run_time())),
             ]));
 
+            let datetime: DateTime<Utc> = Utc
+                .timestamp_opt(proc.start_time() as i64, 0)
+                .single()
+                .expect("Invalid timestamp");
+
             lines.push(Line::from(vec![
                 Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", proc.start_time())),
+                Span::raw(format!("{}", datetime)),
             ]));
 
             lines.push(Line::from(""));
@@ -280,19 +330,22 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 if let Some(parent_proc) = app.system.process(parent_pid) {
                     lines.push(Line::from(vec![
                         Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::raw(format!("{}", parent_proc.name().to_string_lossy().to_string()))
+                        Span::raw(format!(
+                            "{}",
+                            parent_proc.name().to_string_lossy().to_string()
+                        )),
                     ]));
                 } else {
                     lines.push(Line::from(vec![
                         Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::styled("Unknown", Style::default().fg(Color::Cyan))
+                        Span::styled("Unknown", Style::default().fg(Color::Cyan)),
                     ]));
                 }
             } else {
                 lines.push(Line::from(vec![
-                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::styled("None", Style::default().fg(Color::Cyan))
-                    ]));
+                    Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                    Span::styled("None", Style::default().fg(Color::Cyan)),
+                ]));
             }
         }
         lines

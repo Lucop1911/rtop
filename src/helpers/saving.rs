@@ -5,7 +5,7 @@ use std::{fs, path::PathBuf};
 impl App {
     pub fn config_path() -> PathBuf {
         let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("procmon");
+        path.push("rtop");
         fs::create_dir_all(&path).ok();
         path.push("preferences.json");
         path

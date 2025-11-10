@@ -1,6 +1,5 @@
 use crate::{App, Page, SortColumn};
 use crossterm::event::MouseEventKind;
-use ratatui::layout::Constraint;
 use std::time::{Duration, Instant};
 
 pub fn handle_mouse(app: &mut App, kind: MouseEventKind, x: u16, y: u16) {
@@ -31,50 +30,65 @@ impl App {
 
         self.last_click = Some((now, x, y));
 
-        // Controllo click sull'header
+        // Controllo click sull header
         if self.page == Page::Processes && self.header_area.contains((x, y).into()) {
             let header_y = self.header_area.y + 1;
             if y == header_y {
-                let table_width = self.header_area.width.saturating_sub(2);
+                let _table_width = self.header_area.width.saturating_sub(2);
                 let relative_x = x.saturating_sub(self.header_area.x + 1);
 
-                // Stessi constraints di draw_processes.rs
-                let constraints = [
-                    Constraint::Length(10),
-                    Constraint::Percentage(50),
-                    Constraint::Length(12),
-                    Constraint::Length(15),
-                ];
-
-                // Spazio colonna -> caratteri
-                let mut widths = vec![];
-                let mut remaining = table_width;
-                for c in constraints {
-                    let w = match c {
-                        Constraint::Length(n) => n,
-                        Constraint::Percentage(p) => (table_width * p as u16 / 100).max(1),
-                        _ => 1,
-                    };
-                    widths.push(w.min(remaining));
-                    remaining = remaining.saturating_sub(w);
-                }
+                // Calculate dynamic column widths (same logic as in draw_processes)
+                let available_width = self.table_area.width.saturating_sub(4);
+                
+                let max_line_num = self.flatten_processes().len();
+                let line_num_width = max_line_num.to_string().len().max(3) as u16;
+                
+                let pid_width = 10u16;
+                let cpu_width = 12u16;
+                let mem_width = 15u16;
+                let fixed_total = line_num_width + 1 + pid_width + cpu_width + mem_width;
+                
+                let name_width = if available_width > fixed_total {
+                    available_width.saturating_sub(fixed_total).max(10)
+                } else {
+                    10
+                };
 
                 let mut col_edges = Vec::new();
-                let mut start = 0;
-                for w in &widths {
-                    col_edges.push((start, start + *w));
-                    start += *w;
-                }
+                let mut start = 0u16;
+                
+                // Numero riga
+                let line_col_width = line_num_width + 1;
+                col_edges.push((start, start + line_col_width));
+                start += line_col_width;
+                
+                // PID
+                col_edges.push((start, start + pid_width));
+                start += pid_width;
+                
+                // Name
+                col_edges.push((start, start + name_width));
+                start += name_width;
+                
+                // CPU
+                col_edges.push((start, start + cpu_width));
+                start += cpu_width;
+                
+                // Memory
+                col_edges.push((start, start + mem_width));
 
-                // Posizione -> range
                 let new_column = if relative_x < col_edges[0].1 {
-                    Some(SortColumn::Pid)
+                    None
                 } else if relative_x < col_edges[1].1 {
-                    Some(SortColumn::Name)
+                    Some(SortColumn::Pid)
                 } else if relative_x < col_edges[2].1 {
+                    Some(SortColumn::Name)
+                } else if relative_x < col_edges[3].1 {
                     Some(SortColumn::Cpu)
-                } else {
+                } else if relative_x < col_edges[4].1 {
                     Some(SortColumn::Memory)
+                } else {
+                    None
                 };
 
                 if let Some(col) = new_column {
@@ -93,15 +107,15 @@ impl App {
             }
         }
 
-        // Controllo click su una riga
         if self.page == Page::Processes && self.table_area.contains((x, y).into()) {
             let row_offset = 3;
-            if y >= self.table_area.y + row_offset {
-                let clicked_row = (y - self.table_area.y - row_offset) as usize;
+            if y > self.table_area.y + row_offset {
+                let clicked_row = (y - self.table_area.y - row_offset + 1) as usize;
+                let actual_index = self.viewport_offset + clicked_row;
                 let flat = self.flatten_processes();
 
-                if clicked_row < flat.len() {
-                    self.table_state.select(Some(clicked_row));
+                if actual_index < flat.len() {
+                    self.table_state.select(Some(actual_index));
 
                     if is_double_click {
                         self.toggle_expand();

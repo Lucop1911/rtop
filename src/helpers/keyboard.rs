@@ -165,6 +165,9 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::PageUp => {
                 app.page_up();
             }
+            /*KeyCode::Char('g') | KeyCode::Char('G') => {
+                app.process_open_files();
+            }*/
             _ => {}
         }
     }
