@@ -45,9 +45,13 @@ enum Page {
 #[derive(PartialEq)]
 enum InputMode {
     None,
+    SelectFilter,
     UpdateInterval,
     ConfirmKill,
     UserFilter,
+    StatusFilter,
+    CpuThreshold,
+    MemoryThreshold,
 }
 
 #[derive(Clone)]

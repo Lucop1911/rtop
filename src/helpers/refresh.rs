@@ -8,6 +8,8 @@ impl App {
         self.system.refresh_memory();
 
         use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
+        
+        // Refresh degli status
         self.system.refresh_processes_specifics(
             ProcessesToUpdate::All,
             true,

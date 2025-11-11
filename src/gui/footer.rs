@@ -16,10 +16,11 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         ])]
     } else {
         let update_ms = app.update_interval.as_millis();
-        let filters = get_active_filters(app);
+        let filters = get_active_filters_detailed(app);
         
         vec![Line::from(vec![
-            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | p/n/c/m: Sort by PID/ Name/ CPU%/ Mem | "),
+            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | "),
+            ratatui::text::Span::raw("p/n/c/m: Sort | "),
             ratatui::text::Span::raw("+/-: Speed ("),
             ratatui::text::Span::styled(
                 format!("{}ms", update_ms),
@@ -28,11 +29,11 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ratatui::text::Span::raw(")"),
             if !filters.is_empty() {
                 ratatui::text::Span::styled(
-                    format!(" | Filters: {}", filters),
+                    format!(" | Active: {}", filters),
                     Style::default().fg(Color::Magenta)
                 )
             } else {
-                ratatui::text::Span::raw("")
+                ratatui::text::Span::raw("| w: Select filter")
             },
             ratatui::text::Span::raw(" | q: Exit"),
         ])]
@@ -46,20 +47,20 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(footer, area);
 }
 
-fn get_active_filters(app: &App) -> String {
+fn get_active_filters_detailed(app: &App) -> String {
     let mut filters = Vec::new();
     
-    if app.user_filter.is_some() {
-        filters.push("User");
+    if let Some(ref user) = app.user_filter {
+        filters.push(format!("User:{}", user));
     }
-    if app.status_filter.is_some() {
-        filters.push("Status");
+    if let Some(ref status) = app.status_filter {
+        filters.push(format!("Status:{}", status));
     }
-    if app.cpu_threshold.is_some() {
-        filters.push("CPU");
+    if let Some(threshold) = app.cpu_threshold {
+        filters.push(format!("CPU≥{:.1}%", threshold));
     }
-    if app.memory_threshold.is_some() {
-        filters.push("Memory");
+    if let Some(threshold) = app.memory_threshold {
+        filters.push(format!("Mem≥{}MB", threshold / 1024 / 1024));
     }
     
     filters.join(", ")

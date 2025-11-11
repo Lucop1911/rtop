@@ -6,6 +6,9 @@ use std::time::Duration;
 pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> Result<bool> {
     // Handle input modes first
     match app.input_mode {
+        InputMode::SelectFilter => {
+            return handle_select_filter_input(app, code)
+        }
         InputMode::UpdateInterval => {
             return handle_update_interval_input(app, code);
         }
@@ -14,6 +17,15 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
         }
         InputMode::UserFilter => {
             return handle_user_filter_input(app, code);
+        }
+        InputMode::StatusFilter => {
+            return handle_status_filter_input(app, code);
+        }
+        InputMode::CpuThreshold => {
+            return handle_cpu_threshold_input(app, code);
+        }
+        InputMode::MemoryThreshold => {
+            return handle_memory_threshold_input(app, code);
         }
         InputMode::None => {}
     }
@@ -92,7 +104,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char('k') | KeyCode::Char('K') | KeyCode::Delete => {
                 app.initiate_kill()?;
             }
-            KeyCode::Char('r') | KeyCode::Char('R') => {
+            KeyCode::Char('r') | KeyCode::Char('R') if modifiers.contains(KeyModifiers::CONTROL) => {
                 app.force_refresh();
             }
             KeyCode::Char('s') | KeyCode::Char('S') => {
@@ -109,7 +121,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 app.clear_filters();
             }
             KeyCode::Char('w') | KeyCode::Char('W') => {
-                app.input_mode = InputMode::UserFilter;
+                app.input_mode = InputMode::SelectFilter;
                 app.input_buffer.clear();
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
@@ -165,12 +177,53 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::PageUp => {
                 app.page_up();
             }
-            /*KeyCode::Char('g') | KeyCode::Char('G') => {
-                app.process_open_files();
-            }*/
             _ => {}
         }
     }
+    Ok(false)
+}
+
+fn handle_select_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
+    match code {
+        KeyCode::Enter => {
+            if let std::result::Result::Ok(number) = app.input_buffer.parse::<i8>() {
+                if (0..=5).contains(&number) {
+                    match number {
+                        0 => {
+                            app.clear_filters();
+                            app.input_mode = InputMode::None;
+                        }
+                        1 => {
+                            app.input_mode = InputMode::UserFilter;
+                        },
+                        2 => {
+                            app.input_mode = InputMode::StatusFilter;
+                        },
+                        3 => {
+                            app.input_mode = InputMode::CpuThreshold;
+                        },
+                        4 => {
+                            app.input_mode = InputMode::MemoryThreshold;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            app.input_buffer.clear();
+        }
+        KeyCode::Esc => {
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+        }
+        KeyCode::Char(c) if c.is_ascii_digit() => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    app.force_refresh();
     Ok(false)
 }
 
@@ -234,12 +287,102 @@ fn handle_user_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
+            app.force_refresh();
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
         }
         KeyCode::Char(c) => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+fn handle_status_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
+    match code {
+        KeyCode::Enter => {
+            if app.input_buffer.is_empty() {
+                app.status_filter = None;
+            } else {
+                app.status_filter = Some(app.input_buffer.clone());
+            }
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+            app.cached_flat_processes = None;
+            app.force_refresh();
+        }
+        KeyCode::Esc => {
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+        }
+        KeyCode::Char(c) => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+fn handle_cpu_threshold_input(app: &mut App, code: KeyCode) -> Result<bool> {
+    match code {
+        KeyCode::Enter => {
+            if app.input_buffer.is_empty() {
+                app.cpu_threshold = None;
+            } else {
+                if let std::result::Result::Ok(threshold) = app.input_buffer.parse::<f32>() {
+                    app.cpu_threshold = Some(threshold.clamp(0.0, 100.0));
+                }
+            }
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+            app.cached_flat_processes = None;
+            app.force_refresh();
+        }
+        KeyCode::Esc => {
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+        }
+        KeyCode::Char(c) if c.is_ascii_digit() || c == '.' => {
+            app.input_buffer.push(c);
+        }
+        KeyCode::Backspace => {
+            app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+fn handle_memory_threshold_input(app: &mut App, code: KeyCode) -> Result<bool> {
+    match code {
+        KeyCode::Enter => {
+            if app.input_buffer.is_empty() {
+                app.memory_threshold = None;
+            } else {
+                if let std::result::Result::Ok(mb) = app.input_buffer.parse::<u64>() {
+                    // Convert MB to bytes
+                    app.memory_threshold = Some(mb * 1024 * 1024);
+                }
+            }
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+            app.cached_flat_processes = None;
+            app.force_refresh();
+        }
+        KeyCode::Esc => {
+            app.input_mode = InputMode::None;
+            app.input_buffer.clear();
+        }
+        KeyCode::Char(c) if c.is_ascii_digit() => {
             app.input_buffer.push(c);
         }
         KeyCode::Backspace => {

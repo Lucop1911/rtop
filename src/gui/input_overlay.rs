@@ -9,6 +9,34 @@ use ratatui::{
 
 pub fn draw_input_overlay(f: &mut Frame, app: &App) {
     match app.input_mode {
+        InputMode::SelectFilter => {
+            let area = centered_rect(60, 20, f.area());
+
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .title("Select a filter (0. Reset filters / 1. User / 2. Status / 3. CPU% / 4. Memory)")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter numer (0 - 4): "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(paragraph, area);
+        }
+
         InputMode::UpdateInterval => {
             let area = centered_rect(60, 20, f.area());
 
@@ -66,7 +94,7 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             f.render_widget(paragraph, area);
         }
         InputMode::UserFilter => {
-            let area = centered_rect(60, 20, f.area());
+            let area = centered_rect(60, 25, f.area());
 
             f.render_widget(Clear, area);
 
@@ -81,6 +109,106 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
                     Span::raw("Enter User ID: "),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
                 ]),
+                Line::from(""),
+                Line::from("Shows processes matching the specified user ID"),
+                Line::from("Leave empty to clear filter"),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(paragraph, area);
+        }
+        InputMode::StatusFilter => {
+            let area = centered_rect(60, 30, f.area());
+
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .title("Filter by Status")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter Status: "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Shows processes matching the specified status"),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Common statuses:",
+                    Style::default().fg(Color::Cyan),
+                )),
+                Line::from("  • Running, Sleeping, Stopped, Zombie"),
+                Line::from(""),
+                Line::from("Leave empty to clear filter"),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(paragraph, area);
+        }
+        InputMode::CpuThreshold => {
+            let area = centered_rect(60, 25, f.area());
+
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .title("Filter by CPU Threshold")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter minimum CPU% (0-100): "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Shows only processes using >= specified CPU%"),
+                Line::from("Leave empty to clear filter"),
+                Line::from(""),
+                Line::from("Press Enter to confirm, Esc to cancel"),
+            ];
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(paragraph, area);
+        }
+        InputMode::MemoryThreshold => {
+            let area = centered_rect(60, 25, f.area());
+
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .title("Filter by Memory Threshold")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("Enter minimum Memory (MB): "),
+                    Span::styled(&app.input_buffer, Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from("Shows only processes using >= specified MB"),
+                Line::from("Leave empty to clear filter"),
                 Line::from(""),
                 Line::from("Press Enter to confirm, Esc to cancel"),
             ];

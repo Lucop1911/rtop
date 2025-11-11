@@ -18,13 +18,30 @@ impl App {
         for (pid, process) in self.system.processes() {
             let user_id = process.user_id().map(|uid| **uid);
 
+            // Format più clean
+            let status_str = match process.status() {
+                sysinfo::ProcessStatus::Run => "Running".to_string(),
+                sysinfo::ProcessStatus::Sleep => "Sleeping".to_string(),
+                sysinfo::ProcessStatus::Idle => "Idle".to_string(),
+                sysinfo::ProcessStatus::Zombie => "Zombie".to_string(),
+                sysinfo::ProcessStatus::Stop => "Stopped".to_string(),
+                sysinfo::ProcessStatus::Tracing => "Tracing".to_string(),
+                sysinfo::ProcessStatus::Dead => "Dead".to_string(),
+                sysinfo::ProcessStatus::Wakekill => "Wakekill".to_string(),
+                sysinfo::ProcessStatus::Waking => "Waking".to_string(),
+                sysinfo::ProcessStatus::Parked => "Parked".to_string(),
+                sysinfo::ProcessStatus::LockBlocked => "LockBlocked".to_string(),
+                sysinfo::ProcessStatus::UninterruptibleDiskSleep => "DiskSleep".to_string(),
+                _ => format!("{:?}", process.status()),
+            };
+
             let info = ProcessInfo {
                 pid: *pid,
                 name: process.name().to_string_lossy().to_string(),
                 cpu_usage: process.cpu_usage() / cpu_number,
                 memory: process.memory(),
                 user_id,
-                status: format!("{:?}", process.status()),
+                status: status_str,
             };
             process_infos.insert(*pid, info);
 

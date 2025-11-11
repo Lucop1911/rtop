@@ -102,9 +102,12 @@ impl App {
             }
         }
 
-        // Flitro stato
+        // Filtro stato - case insensitive
         if let Some(ref status_filter) = self.status_filter {
-            if !node.info.status.to_lowercase().contains(&status_filter.to_lowercase()) {
+            let status_lower = node.info.status.to_lowercase();
+            let filter_lower = status_filter.to_lowercase();
+            
+            if !status_lower.contains(&filter_lower) {
                 return false;
             }
         }
@@ -301,6 +304,7 @@ impl App {
         self.status_filter = None;
         self.cpu_threshold = None;
         self.memory_threshold = None;
+        self.search_query.clear();
         self.cached_flat_processes = None;
         self.force_refresh();
     }
