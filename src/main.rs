@@ -116,6 +116,7 @@ struct App {
     status_filter: Option<String>,
     cpu_threshold: Option<f32>,
     memory_threshold: Option<u64>,
+    refresh: bool,
 }
 
 impl App {
@@ -161,6 +162,7 @@ impl App {
             status_filter: None,
             cpu_threshold: None,
             memory_threshold: None,
+            refresh: true,
         };
 
         app.build_process_tree();

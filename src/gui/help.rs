@@ -59,6 +59,7 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         ("3 or F3 or h or ?", "Help screen"),
         ("i", "Set custom update interval"),
         ("+ / -", "Increase/decrease update speed"),
+        ("z", "Toggle auto refresh"),
         ("", ""),
         ("General", ""),
         ("q or Esc", "Quit (saves preferences)"),

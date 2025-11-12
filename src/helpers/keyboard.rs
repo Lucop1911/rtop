@@ -110,7 +110,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char('s') | KeyCode::Char('S') => {
                 app.suspend_process()?;
             }
-            KeyCode::Char('u') | KeyCode::Char('U') => {
+            KeyCode::Char('r') | KeyCode::Char('R') => {
                 app.resume_process()?;
             }
             KeyCode::Char('i') | KeyCode::Char('I') => {
@@ -176,6 +176,9 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             }
             KeyCode::PageUp => {
                 app.page_up();
+            }
+            KeyCode::Char('z') | KeyCode::Char('Z') => {
+                app.refresh = !app.refresh;
             }
             _ => {}
         }
