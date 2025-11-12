@@ -22,10 +22,17 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
             ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | "),
             ratatui::text::Span::raw("p/n/c/m: Sort | "),
             ratatui::text::Span::raw("+/-: Speed ("),
-            ratatui::text::Span::styled(
-                format!("{}ms", update_ms),
-                Style::default().fg(Color::Yellow)
-            ),
+                if app.refresh == true {
+                    ratatui::text::Span::styled(    
+                        format!("{}ms", update_ms),
+                        Style::default().fg(Color::Yellow)
+                    )
+                } else {
+                    ratatui::text::Span::styled(    
+                        format!("{}ms - STOPPED", update_ms),
+                        Style::default().fg(Color::Yellow)
+                    )
+                },
             ratatui::text::Span::raw(")"),
             if !filters.is_empty() {
                 ratatui::text::Span::styled(
