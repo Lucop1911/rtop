@@ -220,11 +220,45 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
 
             f.render_widget(paragraph, area);
         }
+        InputMode::Error => {
+            let area = centered_rect(60, 20, f.area());
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .title("Errors occurred")
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::Black));
+
+            let mut lines: Vec<Line> = app
+                .errors
+                .iter()
+                .map(|(label, message)| {
+                    Line::from(vec![
+                        Span::styled(format!("[{}] ", label), Style::default().fg(Color::Red)),
+                        Span::raw(message.clone()),
+                    ])
+                })
+                .collect();
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "Press Enter to confirm, Esc to cancel",
+                Style::default().fg(Color::Gray),
+            )));
+
+            let paragraph = Paragraph::new(lines)
+                .block(block)
+                .alignment(ratatui::layout::Alignment::Left)
+                .style(Style::default().bg(Color::Black));
+
+            f.render_widget(paragraph, area);
+        }
+
         InputMode::None => {}
     }
 }
 
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

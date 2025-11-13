@@ -4,28 +4,31 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use std::time::Duration;
 
 pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -> Result<bool> {
-    // Handle input modes first
+    // Gestisco le input modes
     match app.input_mode {
         InputMode::SelectFilter => {
             return handle_select_filter_input(app, code)
         }
         InputMode::UpdateInterval => {
-            return handle_update_interval_input(app, code);
+            return handle_update_interval_input(app, code)
         }
         InputMode::ConfirmKill => {
-            return handle_confirm_kill(app, code);
+            return handle_confirm_kill(app, code)
         }
         InputMode::UserFilter => {
-            return handle_user_filter_input(app, code);
+            return handle_user_filter_input(app, code)
         }
         InputMode::StatusFilter => {
-            return handle_status_filter_input(app, code);
+            return handle_status_filter_input(app, code)
         }
         InputMode::CpuThreshold => {
-            return handle_cpu_threshold_input(app, code);
+            return handle_cpu_threshold_input(app, code)
         }
         InputMode::MemoryThreshold => {
-            return handle_memory_threshold_input(app, code);
+            return handle_memory_threshold_input(app, code)
+        }
+        InputMode::Error => {
+            return handle_error_overlay_input(app, code)
         }
         InputMode::None => {}
     }
@@ -390,6 +393,21 @@ fn handle_memory_threshold_input(app: &mut App, code: KeyCode) -> Result<bool> {
         }
         KeyCode::Backspace => {
             app.input_buffer.pop();
+        }
+        _ => {}
+    }
+    Ok(false)
+}
+
+fn handle_error_overlay_input(app: &mut App, code: KeyCode) -> Result<bool> {
+    match code{
+        KeyCode::Enter => {
+            app.input_mode = InputMode::None;
+            app.errors.clear();
+        }
+        KeyCode::Esc => {
+            app.input_mode = InputMode::None;
+            app.errors.clear();
         }
         _ => {}
     }

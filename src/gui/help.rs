@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Row, Table},
 };
 
-use crate::{App, gui::input_overlay::draw_input_overlay};
+use crate::{App, gui::overlay::draw_input_overlay};
 
 pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()

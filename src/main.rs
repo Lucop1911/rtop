@@ -52,6 +52,7 @@ enum InputMode {
     StatusFilter,
     CpuThreshold,
     MemoryThreshold,
+    Error,
 }
 
 #[derive(Clone)]
@@ -117,6 +118,7 @@ struct App {
     cpu_threshold: Option<f32>,
     memory_threshold: Option<u64>,
     refresh: bool,
+    errors: Vec<(String, String)>,
 }
 
 impl App {
@@ -163,6 +165,7 @@ impl App {
             cpu_threshold: None,
             memory_threshold: None,
             refresh: true,
+            errors: Vec::new(),
         };
 
         app.build_process_tree();

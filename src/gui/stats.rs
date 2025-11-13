@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::{
     App,
-    gui::input_overlay::draw_input_overlay,
+    gui::overlay::draw_input_overlay,
     helpers::{
         memory, network,
         utils::{calculate_avg_cpu, generate_sparkline, generate_sparkline_with_max},

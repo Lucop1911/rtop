@@ -7,7 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Row, Table},
 };
 
-use crate::{App, SortColumn, gui::input_overlay::draw_input_overlay};
+use crate::{App, SortColumn, gui::overlay::draw_input_overlay};
 
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let min_width_needed = 10 + 10 + 20 + 12 + 15; // line# + PID + Name(min) + CPU + Memory
