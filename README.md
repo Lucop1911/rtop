@@ -7,6 +7,20 @@ A fast, terminal-based system monitoring tool built with **Rust** and **ratatui*
 ![Processes image](.github/images/processes.png)
 ![Stats image](.github/images/stats.png)
 
+---
+
+## Functionalities
+- **Sort processes by PID, Name, CPU usage, RAM usage**
+- **Filter processes by State, User, CPU, RAM**
+- **Kill, Suspend and Resume processes**
+- **View a process's open files**
+- **Change auto refresh speed** (persistent)
+- **View multiple system related statistics**
+- **View multiple process related informations in the dedicated panel**
+- **Keyboard oriented but supports mouse too**
+
+---
+
 ## Prerequisites
 
 - **Linux** (Windows compatibility hasn't been added yet)
