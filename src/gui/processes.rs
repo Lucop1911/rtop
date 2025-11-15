@@ -251,7 +251,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 Span::styled("N/A", Style::default().fg(Color::White)),
             ]));
         }
-        
+
         if let Some(proc) = process {
             lines.push(Line::from(vec![
                 Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
@@ -261,7 +261,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 )),
             ]));
 
-        
             lines.push(Line::from(""));
 
             if let Some(parent_pid) = proc.parent() {
@@ -269,9 +268,7 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                     Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
                     Span::raw(format!("{}", parent_pid.as_u32())),
                 ]));
-            }
 
-            if let Some(parent_pid) = proc.parent() {
                 if let Some(parent_proc) = app.system.process(parent_pid) {
                     lines.push(Line::from(vec![
                         Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
@@ -305,6 +302,11 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 ]));
             }
 
+            lines.push(Line::from(vec![
+                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", node.children.len())),
+            ]));
+
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
@@ -319,12 +321,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             lines.push(Line::from(vec![
                 Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
                 Span::raw(format!("{}", datetime)),
-            ]));
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", node.children.len())),
             ]));
 
             lines.push(Line::from(""));
