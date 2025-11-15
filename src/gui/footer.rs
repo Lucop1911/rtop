@@ -30,7 +30,7 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
                 } else {
                     ratatui::text::Span::styled(    
                         format!("{}ms - STOPPED", update_ms),
-                        Style::default().fg(Color::Yellow)
+                        Style::default().fg(Color::Red)
                     )
                 },
             ratatui::text::Span::raw(")"),

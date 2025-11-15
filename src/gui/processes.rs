@@ -205,11 +205,11 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         let mut lines = vec![
             Line::from(vec![
                 Span::styled("PID: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", node.info.pid.as_u32())),
+                Span::styled(format!("{}", node.info.pid.as_u32()), Style::default().fg(Color::White)),
             ]),
             Line::from(vec![
                 Span::styled("Name: ", Style::default().fg(Color::Cyan)),
-                Span::raw(&node.info.name),
+                Span::styled(&node.info.name, Style::default().fg(Color::White)),
             ]),
             Line::from(""),
             Line::from(vec![
@@ -225,10 +225,10 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             ]),
             Line::from(vec![
                 Span::styled("Memory: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!(
-                    "{:.2} MB",
-                    node.info.memory as f64 / 1024.0 / 1024.0
-                )),
+                Span::styled(
+                    format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0),
+                    Style::default().fg(Color::White),
+                ),
             ]),
         ];
 
@@ -237,14 +237,14 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 "Process I/O:",
                 Style::default().fg(Color::Cyan),
             )]));
-            lines.push(Line::from(vec![Span::raw(format!(
-                "  Read: {:.2} MB",
-                read as f64 / 1024.0 / 1024.0
-            ))]));
-            lines.push(Line::from(vec![Span::raw(format!(
-                "  Write: {:.2} MB",
-                write as f64 / 1024.0 / 1024.0
-            ))]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("  Read: {:.2} MB", read as f64 / 1024.0 / 1024.0),
+                Style::default().fg(Color::White),
+            )]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("  Write: {:.2} MB", write as f64 / 1024.0 / 1024.0),
+                Style::default().fg(Color::White),
+            )]));
         } else {
             lines.push(Line::from(vec![
                 Span::styled("Process I/O: ", Style::default().fg(Color::Cyan)),
@@ -255,10 +255,10 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         if let Some(proc) = process {
             lines.push(Line::from(vec![
                 Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!(
+                Span::styled(format!(
                     "{:.2} MB",
                     proc.virtual_memory() as f64 / 1024.0 / 1024.0
-                )),
+                ), Style::default().fg(Color::White)),
             ]));
 
             lines.push(Line::from(""));
@@ -272,45 +272,54 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 if let Some(parent_proc) = app.system.process(parent_pid) {
                     lines.push(Line::from(vec![
                         Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::raw(format!(
-                            "{}",
-                            parent_proc.name().to_string_lossy().to_string()
-                        )),
+                        Span::styled(
+                            format!("{}", parent_proc.name().to_string_lossy().to_string()),
+                            Style::default().fg(Color::White),
+                        ),
                     ]));
                 } else {
                     lines.push(Line::from(vec![
                         Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::styled("Unknown", Style::default().fg(Color::Cyan)),
+                        Span::styled("Unknown", Style::default().fg(Color::White)),
                     ]));
                 }
             } else {
                 lines.push(Line::from(vec![
                     Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                    Span::styled("None", Style::default().fg(Color::Cyan)),
+                    Span::styled("None", Style::default().fg(Color::White)),
                 ]));
             }
 
             lines.push(Line::from(vec![
                 Span::styled("Status: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:?}", proc.status())),
+                Span::styled(
+                    format!("{:?}", proc.status()),
+                    Style::default().fg(Color::White),
+                ),
             ]));
 
             if let Some(uid) = node.info.user_id {
                 lines.push(Line::from(vec![
                     Span::styled("User ID: ", Style::default().fg(Color::Cyan)),
-                    Span::raw(format!("{}", uid)),
+                    Span::styled(format!("{}", uid), Style::default().fg(Color::White)),
                 ]));
             }
 
             lines.push(Line::from(vec![
                 Span::styled("Children: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", node.children.len())),
+                Span::styled(
+                    format!("{}", node.children.len()),
+                    Style::default().fg(Color::White),
+                ),
             ]));
 
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}s", proc.run_time())),
+                Span::styled(
+                    format!("{}s", proc.run_time()),
+                    Style::default().fg(Color::White),
+                ),
             ]));
 
             let datetime: DateTime<Utc> = Utc
@@ -320,13 +329,13 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
 
             lines.push(Line::from(vec![
                 Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", datetime)),
+                Span::styled(format!("{}", datetime), Style::default().fg(Color::White)),
             ]));
 
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 "Command:",
-                Style::default().fg(Color::Yellow),
+                Style::default().fg(Color::Cyan),
             )));
             let cmd_parts: Vec<String> = proc
                 .cmd()
@@ -337,9 +346,11 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             let max_width = (area.width.saturating_sub(4)) as usize;
             if cmd.len() > max_width {
                 let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
-                lines.push(Line::from(truncated));
+                lines.push(Line::from(Span::styled(truncated, Style::default().fg(Color::White))));
+            } else if cmd.is_empty() {
+                lines.push(Line::from(Span::styled("N/A", Style::default().fg(Color::White))))
             } else {
-                lines.push(Line::from(cmd));
+                lines.push(Line::from(Span::styled(cmd, Style::default().fg(Color::White))));
             }
         }
         lines
