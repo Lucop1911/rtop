@@ -232,7 +232,36 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             ]),
         ];
 
+        if let Some((read, write)) = app.calculate_process_io() {
+            lines.push(Line::from(vec![Span::styled(
+                "Process I/O:",
+                Style::default().fg(Color::Cyan),
+            )]));
+            lines.push(Line::from(vec![Span::raw(format!(
+                "  Read: {:.2} MB",
+                read as f64 / 1024.0 / 1024.0
+            ))]));
+            lines.push(Line::from(vec![Span::raw(format!(
+                "  Write: {:.2} MB",
+                write as f64 / 1024.0 / 1024.0
+            ))]));
+        } else {
+            lines.push(Line::from(vec![
+                Span::styled("Process I/O: ", Style::default().fg(Color::Cyan)),
+                Span::styled("N/A", Style::default().fg(Color::White)),
+            ]));
+        }
+        
         if let Some(proc) = process {
+            lines.push(Line::from(vec![
+                Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!(
+                    "{:.2} MB",
+                    proc.virtual_memory() as f64 / 1024.0 / 1024.0
+                )),
+            ]));
+
+        
             lines.push(Line::from(""));
 
             if let Some(parent_pid) = proc.parent() {
@@ -242,89 +271,6 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                 ]));
             }
 
-            lines.push(Line::from(vec![
-                Span::styled("Status: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{:?}", proc.status())),
-            ]));
-
-            if let Some(uid) = node.info.user_id {
-                lines.push(Line::from(vec![
-                    Span::styled("User ID: ", Style::default().fg(Color::Cyan)),
-                    Span::raw(format!("{}", uid)),
-                ]));
-            }
-
-            lines.push(Line::from(vec![
-                Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!(
-                    "{:.2} MB",
-                    proc.virtual_memory() as f64 / 1024.0 / 1024.0
-                )),
-            ]));
-
-            lines.push(Line::from(""));
-            if let Some((read, write)) = app.calculate_process_io() {
-                lines.push(Line::from(vec![Span::styled(
-                    "Process I/O:",
-                    Style::default().fg(Color::Cyan),
-                )]));
-                lines.push(Line::from(vec![Span::raw(format!(
-                    "  Read: {:.2} MB",
-                    read as f64 / 1024.0 / 1024.0
-                ))]));
-                lines.push(Line::from(vec![Span::raw(format!(
-                    "  Write: {:.2} MB",
-                    write as f64 / 1024.0 / 1024.0
-                ))]));
-            } else {
-                lines.push(Line::from(vec![
-                    Span::styled("Process I/O: ", Style::default().fg(Color::Cyan)),
-                    Span::styled("N/A", Style::default().fg(Color::White)),
-                ]));
-            }
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}s", proc.run_time())),
-            ]));
-
-            let datetime: DateTime<Utc> = Utc
-                .timestamp_opt(proc.start_time() as i64, 0)
-                .single()
-                .expect("Invalid timestamp");
-
-            lines.push(Line::from(vec![
-                Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", datetime)),
-            ]));
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(
-                "Command:",
-                Style::default().fg(Color::Yellow),
-            )));
-            let cmd_parts: Vec<String> = proc
-                .cmd()
-                .iter()
-                .map(|s| s.to_string_lossy().to_string())
-                .collect();
-            let cmd = cmd_parts.join(" ");
-            let max_width = (area.width.saturating_sub(4)) as usize;
-            if cmd.len() > max_width {
-                let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
-                lines.push(Line::from(truncated));
-            } else {
-                lines.push(Line::from(cmd));
-            }
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
-                Span::raw(format!("{}", node.children.len())),
-            ]));
-
-            lines.push(Line::from(""));
             if let Some(parent_pid) = proc.parent() {
                 if let Some(parent_proc) = app.system.process(parent_pid) {
                     lines.push(Line::from(vec![
@@ -345,6 +291,59 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
                     Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
                     Span::styled("None", Style::default().fg(Color::Cyan)),
                 ]));
+            }
+
+            lines.push(Line::from(vec![
+                Span::styled("Status: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{:?}", proc.status())),
+            ]));
+
+            if let Some(uid) = node.info.user_id {
+                lines.push(Line::from(vec![
+                    Span::styled("User ID: ", Style::default().fg(Color::Cyan)),
+                    Span::raw(format!("{}", uid)),
+                ]));
+            }
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}s", proc.run_time())),
+            ]));
+
+            let datetime: DateTime<Utc> = Utc
+                .timestamp_opt(proc.start_time() as i64, 0)
+                .single()
+                .expect("Invalid timestamp");
+
+            lines.push(Line::from(vec![
+                Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", datetime)),
+            ]));
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", node.children.len())),
+            ]));
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "Command:",
+                Style::default().fg(Color::Yellow),
+            )));
+            let cmd_parts: Vec<String> = proc
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().to_string())
+                .collect();
+            let cmd = cmd_parts.join(" ");
+            let max_width = (area.width.saturating_sub(4)) as usize;
+            if cmd.len() > max_width {
+                let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
+                lines.push(Line::from(truncated));
+            } else {
+                lines.push(Line::from(cmd));
             }
         }
         lines
