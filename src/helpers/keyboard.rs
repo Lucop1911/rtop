@@ -183,6 +183,10 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char('z') | KeyCode::Char('Z') => {
                 app.refresh = !app.refresh;
             }
+            KeyCode::Char('x') => {
+                app.process_open_files();
+                
+            }
             _ => {}
         }
     }

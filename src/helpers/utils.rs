@@ -1,5 +1,5 @@
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 use crate::{App, ProcessNode};
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 impl App {
     pub fn force_refresh(&mut self) {
@@ -40,7 +40,7 @@ impl App {
         result: &mut Vec<(usize, Vec<usize>)>,
     ) {
         let (node_matches, has_matching_children) = self.check_node_and_children_match(node);
-        
+
         // Skippo il subtree se ne il nodo ne il processo figlio hanno un match
         if !node_matches && !has_matching_children {
             return;
@@ -48,7 +48,7 @@ impl App {
 
         // Aggiungo il nodo al risultato per dare contesto
         result.push((depth, path.clone()));
-        
+
         // Se il nodo è expanded appiattischo tutti i processi figli
         if node.expanded && !node.children.is_empty() {
             for (child_idx, child) in node.children.iter().enumerate() {
@@ -61,13 +61,14 @@ impl App {
 
     fn check_node_and_children_match(&self, node: &ProcessNode) -> (bool, bool) {
         let node_matches = self.node_matches_filters(node);
-        
+
         // Ricerca ricorsiva di un match sui processi figli
-        let has_matching_children = if !self.search_query.is_empty() 
-            || self.user_filter.is_some() 
+        let has_matching_children = if !self.search_query.is_empty()
+            || self.user_filter.is_some()
             || self.status_filter.is_some()
             || self.cpu_threshold.is_some()
-            || self.memory_threshold.is_some() {
+            || self.memory_threshold.is_some()
+        {
             node.children.iter().any(|child| {
                 let (child_matches, child_has_matching) = self.check_node_and_children_match(child);
                 child_matches || child_has_matching
@@ -75,7 +76,7 @@ impl App {
         } else {
             false
         };
-        
+
         (node_matches, has_matching_children)
     }
 
@@ -85,7 +86,7 @@ impl App {
             let query_lower = self.search_query.to_lowercase();
             let name_lower = node.info.name.to_lowercase();
             let pid_str = node.info.pid.to_string();
-            
+
             if !name_lower.contains(&query_lower) && !pid_str.contains(&self.search_query) {
                 return false;
             }
@@ -106,7 +107,7 @@ impl App {
         if let Some(ref status_filter) = self.status_filter {
             let status_lower = node.info.status.to_lowercase();
             let filter_lower = status_filter.to_lowercase();
-            
+
             if !status_lower.contains(&filter_lower) {
                 return false;
             }
@@ -135,21 +136,23 @@ impl App {
             return None;
         }
         let (_, path) = &cached[flat_idx];
-        
+
         // Navigo direttamente usando il path (0 depth complexity)
         let first_idx = *path.get(0)?;
         let mut current = self.processes.get(first_idx)?;
-        
+
         for &child_idx in &path[1..] {
             current = current.children.get(child_idx)?;
         }
-        
+
         Some(current)
     }
 
     pub fn toggle_expand(&mut self) {
-        let Some(selected) = self.table_state.selected() else { return };
-        
+        let Some(selected) = self.table_state.selected() else {
+            return;
+        };
+
         // Prendo il path prima di clonare il processo
         let path = match self.cached_flat_processes.as_ref() {
             Some(cache) => match cache.get(selected) {
@@ -158,17 +161,21 @@ impl App {
             },
             None => return,
         };
-        
+
         // Navigo con il path clonato
         let Some(first_idx) = path.get(0) else { return };
-        let Some(root) = self.processes.get_mut(*first_idx) else { return };
-        
+        let Some(root) = self.processes.get_mut(*first_idx) else {
+            return;
+        };
+
         let mut current = root;
         for &child_idx in &path[1..] {
-            let Some(child) = current.children.get_mut(child_idx) else { return };
+            let Some(child) = current.children.get_mut(child_idx) else {
+                return;
+            };
             current = child;
         }
-        
+
         // Se il processo ha figli faccio il toggle
         if !current.children.is_empty() {
             current.expanded = !current.expanded;
@@ -231,8 +238,7 @@ impl App {
 
         if index < self.viewport_offset {
             self.viewport_offset = index;
-        }
-        else if index >= self.viewport_offset + visible_rows {
+        } else if index >= self.viewport_offset + visible_rows {
             self.viewport_offset = index.saturating_sub(visible_rows - 1);
         }
     }
@@ -248,7 +254,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let last_idx = flat_len - 1;
             self.table_state.select(Some(last_idx));
@@ -263,7 +269,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
@@ -279,7 +285,7 @@ impl App {
         } else {
             self.flatten_processes().len()
         };
-        
+
         if flat_len > 0 {
             let visible_rows = self.table_area.height.saturating_sub(4) as usize;
             let current = self.table_state.selected().unwrap_or(0);
@@ -318,14 +324,14 @@ pub fn generate_sparkline(data: &[f32]) -> String {
     if data.is_empty() {
         return String::new();
     }
-    
+
     let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
     let max = data.iter().cloned().fold(0.0f32, f32::max);
-    
+
     if max == 0.0 {
         return "▁".repeat(data.len());
     }
-    
+
     data.iter()
         .map(|&val| {
             let normalized = (val / max * (chars.len() - 1) as f32) as usize;
@@ -338,17 +344,55 @@ pub fn generate_sparkline_with_max(data: &[f32], max_value: f32) -> String {
     if data.is_empty() {
         return String::new();
     }
-    
+
     let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    
+
     if max_value == 0.0 {
         return "▁".repeat(data.len());
     }
-    
+
     data.iter()
         .map(|&val| {
             let normalized = ((val / max_value) * (chars.len() - 1) as f32) as usize;
             chars[normalized.min(chars.len() - 1)]
         })
         .collect()
+}
+
+pub fn detect_terminal() -> Option<&'static str> {
+    let candidates = [
+        "kitty",
+        "alacritty",
+        "gnome-terminal",
+        "konsole",
+        "xfce4-terminal",
+        "xterm",
+        "lxterminal",
+        "urxvt",
+        "ghostty",
+        "foot",
+        "wezterm",
+        "terminator",
+        "tilix",
+        "st",
+        "qterminal",
+        "sakura",
+        "eterm",
+        "aterm",
+        "mlterm",
+        "yakuake",
+        "guake",
+        "tilda",
+        "warp-terminal",
+        "rio",
+        "termite",
+    ];
+
+    for term in &candidates {
+        if which::which(term).is_ok() {
+            return Some(term);
+        }
+    }
+
+    None
 }

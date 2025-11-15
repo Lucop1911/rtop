@@ -10,4 +10,4 @@ pub mod utils;
 pub mod ui;
 pub mod saving;
 pub mod refresh;
-//pub mod process_files;
+pub mod process_files;
