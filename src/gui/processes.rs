@@ -91,7 +91,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().bg(Color::Black).fg(Color::White)
+                Style::default().fg(Color::White)
             };
 
             let line_num = format!(
@@ -126,8 +126,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     .style(
         Style::default()
             .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Black),
+            .add_modifier(Modifier::BOLD),
     );
 
     let title = if app.user_filter.is_some()
@@ -163,9 +162,9 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         Block::default()
             .borders(Borders::ALL)
             .title(title)
-            .style(Style::default().bg(Color::Black)),
+            .style(Style::default()),
     )
-    .style(Style::default().bg(Color::Black));
+    .style(Style::default());
 
     app.header_area = Rect {
         x: chunks[0].x,
@@ -364,9 +363,9 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title("Process Details")
-                .style(Style::default().fg(Color::White).bg(Color::Black)),
+                .style(Style::default().fg(Color::White)),
         )
-        .style(Style::default().fg(Color::White).bg(Color::Black));
+        .style(Style::default().fg(Color::White));
 
     f.render_widget(paragraph, area);
 }

@@ -46,7 +46,7 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
                 .borders(Borders::ALL)
                 .title("CPU Usage (Overall)"),
         )
-        .gauge_style(Style::default().fg(Color::Cyan).bg(Color::Black))
+        .gauge_style(Style::default().fg(Color::Cyan))
         .percent(avg_cpu as u16);
 
     let cpu_chunks = Layout::default()
