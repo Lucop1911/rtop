@@ -1,4 +1,5 @@
 use std::time::Instant;
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 use crate::App;
 
@@ -52,5 +53,22 @@ impl App {
             self.last_update = Instant::now();
             self.build_process_tree();
         }
+    }
+     pub fn force_refresh(&mut self) {
+        self.system.refresh_cpu_all();
+        self.system.refresh_memory();
+
+        self.system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing()
+                .with_cpu()
+                .with_memory()
+                .with_user(UpdateKind::Always),
+        );
+
+        self.networks.refresh(true);
+        self.build_process_tree();
+        self.cached_flat_processes = None;
     }
 }

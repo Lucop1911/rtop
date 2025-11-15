@@ -39,7 +39,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 app.search_mode = false;
                 app.search_query.clear();
                 app.cached_flat_processes = None;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
             }
             KeyCode::Enter => {
                 app.search_mode = false;
@@ -48,13 +48,13 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             KeyCode::Char(c) => {
                 app.search_query.push(c);
                 app.cached_flat_processes = None;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
                 app.select_first_matching();
             }
             KeyCode::Backspace => {
                 app.search_query.pop();
                 app.cached_flat_processes = None;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
                 app.select_first_matching();
             }
             KeyCode::Down => {
@@ -141,28 +141,28 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
                 app.reverse_sort = !app.reverse_sort;
                 app.preferences.sort_column = app.sort_column;
                 app.preferences.reverse_sort = app.reverse_sort;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
             }
             KeyCode::Char('n') => {
                 app.sort_column = crate::SortColumn::Name;
                 app.reverse_sort = !app.reverse_sort;
                 app.preferences.sort_column = app.sort_column;
                 app.preferences.reverse_sort = app.reverse_sort;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
             }
             KeyCode::Char('c') => {
                 app.sort_column = crate::SortColumn::Cpu;
                 app.reverse_sort = !app.reverse_sort;
                 app.preferences.sort_column = app.sort_column;
                 app.preferences.reverse_sort = app.reverse_sort;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
             }
             KeyCode::Char('m') => {
                 app.sort_column = crate::SortColumn::Memory;
                 app.reverse_sort = !app.reverse_sort;
                 app.preferences.sort_column = app.sort_column;
                 app.preferences.reverse_sort = app.reverse_sort;
-                app.force_refresh();
+                if app.refresh {app.force_refresh()}
             }
             KeyCode::Char('+') | KeyCode::Char('=') => {
                 let new_interval = app.update_interval.saturating_sub(Duration::from_millis(100));
@@ -182,6 +182,7 @@ pub fn handle_key_event(app: &mut App, code: KeyCode, modifiers: KeyModifiers) -
             }
             KeyCode::Char('z') | KeyCode::Char('Z') => {
                 app.refresh = !app.refresh;
+                app.force_refresh();
             }
             KeyCode::Char('x') => {
                 app.process_open_files();
@@ -233,7 +234,7 @@ fn handle_select_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
         }
         _ => {}
     }
-    app.force_refresh();
+    if app.refresh {app.force_refresh()}
     Ok(false)
 }
 
@@ -261,7 +262,7 @@ fn handle_update_interval_input(app: &mut App, code: KeyCode) -> Result<bool> {
         }
         _ => {}
     }
-    app.force_refresh();
+    if app.refresh {app.force_refresh()}
     Ok(false)
 }
 
@@ -297,7 +298,7 @@ fn handle_user_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
-            app.force_refresh();
+            if app.refresh {app.force_refresh()}
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;
@@ -325,7 +326,7 @@ fn handle_status_filter_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
-            app.force_refresh();
+            if app.refresh {app.force_refresh()}
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;
@@ -355,7 +356,7 @@ fn handle_cpu_threshold_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
-            app.force_refresh();
+            if app.refresh {app.force_refresh()}
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;
@@ -386,7 +387,7 @@ fn handle_memory_threshold_input(app: &mut App, code: KeyCode) -> Result<bool> {
             app.input_mode = InputMode::None;
             app.input_buffer.clear();
             app.cached_flat_processes = None;
-            app.force_refresh();
+            if app.refresh {app.force_refresh()}
         }
         KeyCode::Esc => {
             app.input_mode = InputMode::None;

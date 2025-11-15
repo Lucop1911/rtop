@@ -99,7 +99,7 @@ impl App {
                             self.sort_column = col;
                             self.reverse_sort = matches!(col, SortColumn::Cpu | SortColumn::Memory);
                         }
-                        self.force_refresh();
+                        if self.refresh {self.force_refresh()}
                     }
                 }
 

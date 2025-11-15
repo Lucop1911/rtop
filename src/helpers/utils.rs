@@ -1,25 +1,6 @@
 use crate::{App, ProcessNode};
-use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 impl App {
-    pub fn force_refresh(&mut self) {
-        self.system.refresh_cpu_all();
-        self.system.refresh_memory();
-
-        self.system.refresh_processes_specifics(
-            ProcessesToUpdate::All,
-            true,
-            ProcessRefreshKind::nothing()
-                .with_cpu()
-                .with_memory()
-                .with_user(UpdateKind::Always),
-        );
-
-        self.networks.refresh(true);
-        self.build_process_tree();
-        self.cached_flat_processes = None;
-    }
-
     pub fn flatten_processes(&mut self) -> &Vec<(usize, Vec<usize>)> {
         if self.cached_flat_processes.is_none() {
             let mut result = Vec::with_capacity(self.processes.len() * 2);
@@ -312,7 +293,7 @@ impl App {
         self.memory_threshold = None;
         self.search_query.clear();
         self.cached_flat_processes = None;
-        self.force_refresh();
+        if self.refresh {self.force_refresh()}
     }
 }
 
