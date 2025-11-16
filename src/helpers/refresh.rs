@@ -54,6 +54,7 @@ impl App {
             self.build_process_tree();
         }
     }
+    
      pub fn force_refresh(&mut self) {
         self.system.refresh_cpu_all();
         self.system.refresh_memory();

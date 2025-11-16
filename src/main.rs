@@ -1,9 +1,6 @@
 mod gui;
 mod helpers;
 
-use crate::helpers::keyboard::handle_key_event;
-use crate::helpers::mouse::handle_mouse;
-use crate::helpers::ui::ui;
 use anyhow::Result;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event},
@@ -17,15 +14,19 @@ use ratatui::{
     widgets::TableState,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
     io,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
 use sysinfo::{Networks, Pid, System};
+
+use crate::helpers::{keyboard::handle_key_event, mouse::handle_mouse, ui::ui};
 
 #[derive(PartialEq, Clone, Copy, Serialize, Deserialize)]
 enum SortColumn {
