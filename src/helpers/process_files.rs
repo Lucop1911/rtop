@@ -1,8 +1,9 @@
 use crate::App;
 use crate::helpers::utils::detect_terminal;
-use std::fs::{self};
-use std::process::Command;
+use procfs2::proc;
+use procfs2::proc::process::FdTarget;
 use std::io::Write;
+use std::process::Command;
 
 impl App {
     pub fn process_open_files(&mut self) {
@@ -10,44 +11,21 @@ impl App {
             return;
         };
 
-        let Some(node) = self.get_process_at_flat_index(selected) else {
+        let Some(info) = self.get_process_at_flat_index(selected) else {
             return;
         };
 
-        let pid = node.info.pid.as_u32() as i32;
-        let proc_fd_path = format!("/proc/{}/fd", pid);
-        let name = node.info.name.clone();
-        
-        if fs::read_dir(&proc_fd_path).is_err() {
-            return;
-        }
+        let pid = info.pid;
+        let name = info.name.clone();
 
-        let mut output = format!("Open file descriptors for PID {} ({})\n\n", pid, name);
-
-        let entries = match fs::read_dir(&proc_fd_path) {
-            Ok(e) => e,
-            Err(_) => return,
+        let output = match read_fd_list(pid, &name) {
+            Ok(output) => output,
+            Err(msg) => {
+                self.errors.push(("Open files".to_string(), msg));
+                self.input_mode = crate::InputMode::Error;
+                return;
+            }
         };
-
-        let mut fds: Vec<_> = entries.filter_map(|e| e.ok()).collect();
-        fds.sort_by_key(|e| {
-            e.file_name()
-                .to_string_lossy()
-                .parse::<u32>()
-                .unwrap_or(0)
-        });
-
-        for entry in fds {
-            let fd_num = entry.file_name().to_string_lossy().to_string();
-            let fd_path = entry.path();
-
-            let line = match fs::read_link(&fd_path) {
-                Ok(target) => format!("FD {:>4}: {}\n", fd_num, target.display()),
-                Err(_) => format!("FD {:>4}: <unreadable>\n", fd_num),
-            };
-
-            output.push_str(&line);
-        }
 
         let terminal = detect_terminal().unwrap_or("xterm");
 
@@ -64,5 +42,37 @@ impl App {
                 .stderr(std::process::Stdio::null())
                 .spawn();
         }
+    }
+}
+
+fn read_fd_list(pid: u32, name: &str) -> Result<String, String> {
+    let process = proc::Process::new(pid).map_err(|_| format!("PID {} no longer exists", pid))?;
+    let mut fds = process
+        .fds()
+        .map_err(|_| format!("Cannot read /proc/{}/fd", pid))?;
+    fds.sort_by_key(|fd| fd.number);
+
+    let mut output = format!("Open file descriptors for PID {} ({})\n\n", pid, name);
+    if fds.is_empty() {
+        output.push_str("(none)\n");
+    }
+    for fd in fds {
+        output.push_str(&format!(
+            "FD {:>4}: {}\n",
+            fd.number,
+            format_target(&fd.target)
+        ));
+    }
+    Ok(output)
+}
+
+fn format_target(target: &FdTarget) -> String {
+    match target {
+        FdTarget::File(path) => path.display().to_string(),
+        FdTarget::Socket(inode) => format!("socket:[{}]", inode),
+        FdTarget::Pipe(inode) => format!("pipe:[{}]", inode),
+        FdTarget::AnonInode(kind) => format!("anon_inode:{}", kind),
+        FdTarget::MemFD(name) => format!("/memfd:{}", name),
+        FdTarget::Other(raw) => raw.to_string(),
     }
 }

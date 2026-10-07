@@ -2,7 +2,7 @@ use crate::{App, InputMode};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
@@ -23,11 +23,20 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter numer (0 - 4): ", Style::default().fg(Color::White).not_bold()),
-                    Span::styled(&app.input_buffer, Style::default().fg(Color::Green).not_bold()),
+                    Span::styled(
+                        "Enter numer (0 - 4): ",
+                        Style::default().fg(Color::White).not_bold(),
+                    ),
+                    Span::styled(
+                        &app.input_buffer,
+                        Style::default().fg(Color::Green).not_bold(),
+                    ),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White).not_bold())),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White).not_bold(),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -46,17 +55,22 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("Set Update Interval (ms)")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Yellow));
+                .style(Style::default().bg(Color::Black).fg(Color::Yellow));
 
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter interval (100-6000 ms): ", Style::default().fg(Color::White)),
+                    Span::styled(
+                        "Enter interval (100-6000 ms): ",
+                        Style::default().fg(Color::White),
+                    ),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -74,8 +88,7 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("⚠ Confirm Kill Critical Process")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::LightRed));
+                .style(Style::default().bg(Color::Black).fg(Color::LightRed));
 
             let text = vec![
                 Line::from(""),
@@ -84,9 +97,15 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
                     Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
                 )),
                 Line::from(""),
-                Line::from(Span::styled("Are you sure you want to kill this process?", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Are you sure you want to kill this process?",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Press Y to confirm, N or Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Y to confirm, N or Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -102,22 +121,30 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             f.render_widget(Clear, area);
 
             let block = Block::default()
-                .title("Filter by User ID")
+                .title("Filter by User")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Yellow));
+                .style(Style::default().bg(Color::Black).fg(Color::Yellow));
 
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter User ID: ", Style::default().fg(Color::White)),
+                    Span::styled("Enter user name or ID: ", Style::default().fg(Color::White)),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Shows processes matching the specified user ID", Style::default().fg(Color::White))),
-                Line::from(Span::styled("Leave empty to clear filter", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Shows processes matching the user name or uid",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "Leave empty to clear filter",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -135,8 +162,7 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("Filter by Status")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Yellow));
+                .style(Style::default().bg(Color::Black).fg(Color::Yellow));
 
             let text = vec![
                 Line::from(""),
@@ -145,17 +171,29 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Shows processes matching the specified status", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Shows processes matching the specified status",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
                 Line::from(Span::styled(
                     "Common statuses:",
                     Style::default().fg(Color::Cyan),
                 )),
-                Line::from(Span::styled("  • Running, Sleeping, Stopped, Zombie", Style::default().fg(Color::White).bold())),
+                Line::from(Span::styled(
+                    "  • Running, Sleeping, Stopped, Zombie",
+                    Style::default().fg(Color::White).bold(),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Leave empty to clear filter", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Leave empty to clear filter",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -173,20 +211,31 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("Filter by CPU Threshold")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Yellow));
+                .style(Style::default().bg(Color::Black).fg(Color::Yellow));
 
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter minimum CPU% (0-100): ", Style::default().fg(Color::White)),
+                    Span::styled(
+                        "Enter minimum CPU% (0-100): ",
+                        Style::default().fg(Color::White),
+                    ),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Shows only processes using >= specified CPU%", Style::default().fg(Color::White))),
-                Line::from(Span::styled("Leave empty to clear filter", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Shows only processes using >= specified CPU%",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "Leave empty to clear filter",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -204,20 +253,31 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("Filter by Memory Threshold")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Yellow));
+                .style(Style::default().bg(Color::Black).fg(Color::Yellow));
 
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("Enter minimum Memory (MB): ", Style::default().fg(Color::White)),
+                    Span::styled(
+                        "Enter minimum Memory (MB): ",
+                        Style::default().fg(Color::White),
+                    ),
                     Span::styled(&app.input_buffer, Style::default().fg(Color::Green)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("Shows only processes using >= specified MB", Style::default().fg(Color::White))),
-                Line::from(Span::styled("Leave empty to clear filter", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Shows only processes using >= specified MB",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "Leave empty to clear filter",
+                    Style::default().fg(Color::White),
+                )),
                 Line::from(""),
-                Line::from(Span::styled("Press Enter to confirm, Esc to cancel", Style::default().fg(Color::White))),
+                Line::from(Span::styled(
+                    "Press Enter to confirm, Esc to cancel",
+                    Style::default().fg(Color::White),
+                )),
             ];
 
             let paragraph = Paragraph::new(text)
@@ -234,8 +294,7 @@ pub fn draw_input_overlay(f: &mut Frame, app: &App) {
             let block = Block::default()
                 .title("Errors occurred")
                 .borders(Borders::ALL)
-                .style(Style::default().bg(Color::Black)
-                .fg(Color::Red));
+                .style(Style::default().bg(Color::Black).fg(Color::Red));
 
             let mut lines: Vec<Line> = app
                 .errors

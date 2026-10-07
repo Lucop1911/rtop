@@ -1,25 +1,24 @@
 use crate::App;
 
-// Returns (total_received_bytes, total_transmitted_bytes)
+/// (received, transmitted) bytes over all interfaces since the last sample.
 pub fn calculate_network_totals(app: &App) -> (u64, u64) {
-    return app
-        .networks
+    app.net_deltas
         .iter()
-        .map(|(_, net)| (net.received(), net.transmitted()))
-        .fold((0, 0), |(rx, tx), (r, t)| (rx + r, tx + t));
+        .fold((0, 0), |(rx, tx), (_, iface_rx, iface_tx)| {
+            (rx + iface_rx, tx + iface_tx)
+        })
 }
 
-// Informazioni per interface Vec<(name, received_MB, transmitted_MB)>
+/// Per-interface (name, received_MB, transmitted_MB) since the last sample.
 pub fn per_interface_info(app: &App) -> Vec<(String, f64, f64)> {
-    return app
-        .networks
+    app.net_deltas
         .iter()
-        .map(|(name, net)| {
+        .map(|(name, rx, tx)| {
             (
                 name.clone(),
-                net.received() as f64 / 1024.0 / 1024.0,
-                net.transmitted() as f64 / 1024.0 / 1024.0,
+                *rx as f64 / 1024.0 / 1024.0,
+                *tx as f64 / 1024.0 / 1024.0,
             )
         })
-        .collect();
+        .collect()
 }

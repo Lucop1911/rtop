@@ -17,27 +17,29 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
     } else {
         let update_ms = app.update_interval.as_millis();
         let filters = get_active_filters_detailed(app);
-        
+
         vec![Line::from(vec![
-            ratatui::text::Span::raw("?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | "),
+            ratatui::text::Span::raw(
+                "?: Help | 1: Processes | 2: Stats | /: Search | i: Interval | k: Kill | ",
+            ),
             ratatui::text::Span::raw("p/n/c/m: Sort | "),
             ratatui::text::Span::raw("+/-: Speed ("),
-                if app.refresh == true {
-                    ratatui::text::Span::styled(    
-                        format!("{}ms", update_ms),
-                        Style::default().fg(Color::Yellow)
-                    )
-                } else {
-                    ratatui::text::Span::styled(    
-                        format!("{}ms - STOPPED", update_ms),
-                        Style::default().fg(Color::Red)
-                    )
-                },
+            if app.refresh {
+                ratatui::text::Span::styled(
+                    format!("{}ms", update_ms),
+                    Style::default().fg(Color::Yellow),
+                )
+            } else {
+                ratatui::text::Span::styled(
+                    format!("{}ms - STOPPED", update_ms),
+                    Style::default().fg(Color::Red),
+                )
+            },
             ratatui::text::Span::raw(")"),
             if !filters.is_empty() {
                 ratatui::text::Span::styled(
                     format!(" | Active: {}", filters),
-                    Style::default().fg(Color::Magenta)
+                    Style::default().fg(Color::Magenta),
                 )
             } else {
                 ratatui::text::Span::raw("| w: Select filter")
@@ -56,7 +58,7 @@ pub fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
 
 fn get_active_filters_detailed(app: &App) -> String {
     let mut filters = Vec::new();
-    
+
     if let Some(ref user) = app.user_filter {
         filters.push(format!("User:{}", user));
     }
@@ -69,6 +71,6 @@ fn get_active_filters_detailed(app: &App) -> String {
     if let Some(threshold) = app.memory_threshold {
         filters.push(format!("Mem≥{}MB", threshold / 1024 / 1024));
     }
-    
+
     filters.join(", ")
 }

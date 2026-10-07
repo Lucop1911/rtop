@@ -24,7 +24,7 @@ A fast, terminal-based system monitoring tool built with **Rust** and **ratatui*
 ## Prerequisites
 
 - **Linux** (Windows compatibility hasn't been added yet)
-- **Rust** (v1.80+ recommended) and Cargo → [Install Rust](https://www.rust-lang.org/tools/install)
+- **Rust** (v1.88+ required by ratatui 0.30) and Cargo → [Install Rust](https://www.rust-lang.org/tools/install)
 - **Git** (to clone the repository)
 
 ---

@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect, Alignment},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Span,
     widgets::{Block, Borders, Paragraph, Row, Table},
@@ -36,7 +36,6 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         ("b", "Jump to bottom"),
         ("", ""),
         ("Actions", ""),
-        ("Enter/Space", "Expand/collapse process tree"),
         ("k/Del", "Kill process (with confirmation for critical)"),
         ("s", "Suspend process (SIGSTOP)"),
         ("r", "Resume process (SIGCONT)"),
@@ -67,10 +66,13 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
         ("Ctrl+C", "Force quit (saves preferences)"),
     ];
 
-    let mid = (bindings.len() + 1) / 2;
+    let mid = bindings.len().div_ceil(2);
     let (left_bindings, right_bindings) = bindings.split_at(mid);
 
-    fn make_rows<'a>(left: &'a [(&'a str, &'a str)], right: &'a [(&'a str, &'a str)]) -> Vec<Row<'a>> {
+    fn make_rows<'a>(
+        left: &'a [(&'a str, &'a str)],
+        right: &'a [(&'a str, &'a str)],
+    ) -> Vec<Row<'a>> {
         let max_len = left.len().max(right.len());
         let mut rows = Vec::with_capacity(max_len);
 
@@ -125,10 +127,7 @@ pub fn draw_help(f: &mut Frame, app: &mut App, area: Rect) {
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            " ",
-            Style::default()
-        ),
+        Span::styled(" ", Style::default()),
         Span::styled(
             "Key",
             Style::default()

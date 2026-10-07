@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -39,49 +39,31 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
 
     app.table_area = chunks[0];
 
-    let flat = app.flatten_processes().clone();
     let visible_rows = chunks[0].height.saturating_sub(4) as usize;
 
     let start = app.viewport_offset;
-    let end = (start + visible_rows).min(flat.len());
-    let visible_processes = &flat[start..end];
+    let end = (start + visible_rows).min(app.display.len());
+    let visible_processes = &app.display[start..end];
 
-    let max_line_num = flat.len();
-    let line_num_width = max_line_num.to_string().len().max(3) as u16;
-
+    let max_line_num = app.display.len();
     let available_width = chunks[0].width.saturating_sub(4);
-
-    let pid_width = 10u16;
-    let cpu_width = 12u16;
-    let mem_width = 15u16;
-    let fixed_total = line_num_width + 1 + pid_width + cpu_width + mem_width;
-
-    let name_width = if available_width > fixed_total {
-        available_width.saturating_sub(fixed_total).max(10)
-    } else {
-        10
-    };
+    let columns = crate::helpers::columns::TableColumns::new(available_width, max_line_num);
+    let name_width = columns.name_width;
+    let line_num_width = columns.line_num_width;
 
     let rows: Vec<Row> = visible_processes
         .iter()
         .enumerate()
-        .map(|(i, (depth, _))| {
+        .map(|(i, row)| {
             let actual_idx = start + i;
-            let node = app.get_process_at_flat_index(actual_idx).unwrap();
+            let info = &app.processes[row.proc_idx];
 
-            let indent = "  ".repeat(*depth);
-            let expand_indicator = if !node.children.is_empty() {
-                if node.expanded { "▼ " } else { "▶ " }
+            // Flat name, truncated to the column width like htop.
+            let max_name_len = name_width as usize;
+            let name = if info.name.len() > max_name_len {
+                format!("{}...", &info.name[..max_name_len - 3])
             } else {
-                "  "
-            };
-            let name_raw = format!("{}{}{}", indent, expand_indicator, node.info.name);
-
-            let max_name_len = name_width.saturating_sub(3) as usize;
-            let name = if name_raw.len() > max_name_len {
-                format!("{}...", &name_raw[..max_name_len.saturating_sub(3)])
-            } else {
-                name_raw
+                info.name.clone()
             };
 
             let is_selected = Some(actual_idx) == app.table_state.selected();
@@ -102,10 +84,10 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
 
             Row::new(vec![
                 line_num,
-                format!("{}", node.info.pid.as_u32()),
+                format!("{}", info.pid),
                 name,
-                format!("{:.1}%", node.info.cpu_usage),
-                format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0),
+                format!("{:.1}%", info.cpu_usage),
+                format!("{:.2} MB", info.memory as f64 / 1024.0 / 1024.0),
             ])
             .style(style)
         })
@@ -133,38 +115,30 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         || app.status_filter.is_some()
         || app.cpu_threshold.is_some()
         || app.memory_threshold.is_some()
+        || !app.search_query.is_empty()
     {
         format!(
             "Processes ({}/{}) [FILTERED]",
-            flat.len(),
-            app.system.processes().len()
+            app.display.len(),
+            app.processes.len()
         )
     } else {
-        format!(
-            "Processes ({}/{})",
-            flat.len(),
-            app.system.processes().len()
-        )
+        format!("Processes ({}/{})", app.display.len(), app.processes.len())
     };
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(line_num_width + 1),
-            Constraint::Length(pid_width),
-            Constraint::Length(name_width),
-            Constraint::Length(cpu_width),
-            Constraint::Length(mem_width),
-        ],
-    )
-    .header(header)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .style(Style::default()),
-    )
-    .style(Style::default());
+    // column_spacing(0): column x-ranges must match TableColumns::edges
+    // exactly so header clicks hit-test the column that is drawn there.
+    // Visual gaps come from the cell padding in the constraint widths.
+    let table = Table::new(rows, columns.constraints())
+        .column_spacing(0)
+        .header(header)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .style(Style::default()),
+        )
+        .style(Style::default());
 
     app.header_area = Rect {
         x: chunks[0].x,
@@ -191,32 +165,45 @@ fn get_header_with_indicator(name: &str, column: SortColumn, app: &App) -> Strin
     }
 }
 
+/// Formats the process owner as `name (uid)` from the uid cached in
+/// `ProcessInfo` (resolved on selection change / refresh — the draw
+/// path never reads `/proc`).
+fn resolve_user(app: &App, info: &crate::ProcessInfo) -> String {
+    match info.user_id {
+        Some(uid) => match app.user_names.get(&uid) {
+            Some(name) => format!("{} ({})", name, uid),
+            None => uid.to_string(),
+        },
+        None => "Unknown".to_string(),
+    }
+}
+
 fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Clear, area);
 
-    let selected_node = app
+    let selected_row = app
         .table_state
         .selected()
-        .and_then(|idx| app.get_process_at_flat_index(idx));
+        .and_then(|idx| app.display.get(idx));
 
-    let content = if let Some(node) = selected_node {
-        let process = app.system.process(node.info.pid);
+    let content = if let Some(row) = selected_row {
+        let info = &app.processes[row.proc_idx];
 
         let mut lines = vec![
             Line::from(vec![
                 Span::styled("PID: ", Style::default().fg(Color::Cyan)),
-                Span::styled(format!("{}", node.info.pid.as_u32()), Style::default().fg(Color::White)),
+                Span::styled(format!("{}", info.pid), Style::default().fg(Color::White)),
             ]),
             Line::from(vec![
                 Span::styled("Name: ", Style::default().fg(Color::Cyan)),
-                Span::styled(&node.info.name, Style::default().fg(Color::White)),
+                Span::styled(&info.name, Style::default().fg(Color::White)),
             ]),
             Line::from(""),
             Line::from(vec![
                 Span::styled("CPU Usage: ", Style::default().fg(Color::Cyan)),
                 Span::styled(
-                    format!("{:.2}%", node.info.cpu_usage),
-                    Style::default().fg(if node.info.cpu_usage > 50.0 {
+                    format!("{:.2}%", info.cpu_usage),
+                    Style::default().fg(if info.cpu_usage > 50.0 {
                         Color::Red
                     } else {
                         Color::Green
@@ -226,13 +213,13 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             Line::from(vec![
                 Span::styled("Memory: ", Style::default().fg(Color::Cyan)),
                 Span::styled(
-                    format!("{:.2} MB", node.info.memory as f64 / 1024.0 / 1024.0),
+                    format!("{:.2} MB", info.memory as f64 / 1024.0 / 1024.0),
                     Style::default().fg(Color::White),
                 ),
             ]),
         ];
 
-        if let Some((read, write)) = app.calculate_process_io() {
+        if let Some((read, write)) = app.detail_io {
             lines.push(Line::from(vec![Span::styled(
                 "Process I/O:",
                 Style::default().fg(Color::Cyan),
@@ -252,107 +239,100 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
             ]));
         }
 
-        if let Some(proc) = process {
+        lines.push(Line::from(vec![
+            Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
+            Span::styled(
+                format!("{:.2} MB", info.vsize as f64 / 1024.0 / 1024.0),
+                Style::default().fg(Color::White),
+            ),
+        ]));
+
+        lines.push(Line::from(""));
+
+        if info.ppid == 0 {
             lines.push(Line::from(vec![
-                Span::styled("Virtual Memory: ", Style::default().fg(Color::Cyan)),
-                Span::styled(format!(
-                    "{:.2} MB",
-                    proc.virtual_memory() as f64 / 1024.0 / 1024.0
-                ), Style::default().fg(Color::White)),
+                Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                Span::styled("None", Style::default().fg(Color::White)),
             ]));
-
-            lines.push(Line::from(""));
-
-            if let Some(parent_pid) = proc.parent() {
-                lines.push(Line::from(vec![
-                    Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
-                    Span::raw(format!("{}", parent_pid.as_u32())),
-                ]));
-
-                if let Some(parent_proc) = app.system.process(parent_pid) {
-                    lines.push(Line::from(vec![
-                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::styled(
-                            format!("{}", parent_proc.name().to_string_lossy().to_string()),
-                            Style::default().fg(Color::White),
-                        ),
-                    ]));
-                } else {
-                    lines.push(Line::from(vec![
-                        Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                        Span::styled("Unknown", Style::default().fg(Color::White)),
-                    ]));
-                }
-            } else {
-                lines.push(Line::from(vec![
+        } else {
+            lines.push(Line::from(vec![
+                Span::styled("Parent PID: ", Style::default().fg(Color::Cyan)),
+                Span::raw(format!("{}", info.ppid)),
+            ]));
+            match app.pid_index.get(&info.ppid) {
+                Some(&parent_idx) => lines.push(Line::from(vec![
                     Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
-                    Span::styled("None", Style::default().fg(Color::White)),
-                ]));
+                    Span::styled(
+                        app.processes[parent_idx].name.clone(),
+                        Style::default().fg(Color::White),
+                    ),
+                ])),
+                None => lines.push(Line::from(vec![
+                    Span::styled("Parent process: ", Style::default().fg(Color::Cyan)),
+                    Span::styled("Unknown", Style::default().fg(Color::White)),
+                ])),
             }
+        }
 
-            lines.push(Line::from(vec![
-                Span::styled("Status: ", Style::default().fg(Color::Cyan)),
-                Span::styled(
-                    format!("{:?}", proc.status()),
-                    Style::default().fg(Color::White),
-                ),
-            ]));
+        lines.push(Line::from(vec![
+            Span::styled("Status: ", Style::default().fg(Color::Cyan)),
+            Span::styled(&info.status, Style::default().fg(Color::White)),
+        ]));
 
-            if let Some(uid) = node.info.user_id {
-                lines.push(Line::from(vec![
-                    Span::styled("User ID: ", Style::default().fg(Color::Cyan)),
-                    Span::styled(format!("{}", uid), Style::default().fg(Color::White)),
-                ]));
-            }
+        lines.push(Line::from(vec![
+            Span::styled("User: ", Style::default().fg(Color::Cyan)),
+            Span::styled(resolve_user(app, info), Style::default().fg(Color::White)),
+        ]));
 
-            lines.push(Line::from(vec![
-                Span::styled("Children: ", Style::default().fg(Color::Cyan)),
-                Span::styled(
-                    format!("{}", node.children.len()),
-                    Style::default().fg(Color::White),
-                ),
-            ]));
+        lines.push(Line::from(vec![
+            Span::styled("Threads: ", Style::default().fg(Color::Cyan)),
+            Span::styled(
+                format!("{}", info.num_threads),
+                Style::default().fg(Color::White),
+            ),
+        ]));
 
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
-                Span::styled(
-                    format!("{}s", proc.run_time()),
-                    Style::default().fg(Color::White),
-                ),
-            ]));
+        lines.push(Line::from(""));
 
-            let datetime: DateTime<Utc> = Utc
-                .timestamp_opt(proc.start_time() as i64, 0)
-                .single()
-                .expect("Invalid timestamp");
+        let now = Utc::now().timestamp();
+        let run_time = now.saturating_sub(info.start_time as i64).max(0);
+        lines.push(Line::from(vec![
+            Span::styled("Run Time: ", Style::default().fg(Color::Cyan)),
+            Span::styled(format!("{}s", run_time), Style::default().fg(Color::White)),
+        ]));
 
+        if let Some(datetime) = Utc.timestamp_opt(info.start_time as i64, 0).single() {
             lines.push(Line::from(vec![
                 Span::styled("Start Time: ", Style::default().fg(Color::Cyan)),
                 Span::styled(format!("{}", datetime), Style::default().fg(Color::White)),
             ]));
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(
-                "Command:",
-                Style::default().fg(Color::Cyan),
-            )));
-            let cmd_parts: Vec<String> = proc
-                .cmd()
-                .iter()
-                .map(|s| s.to_string_lossy().to_string())
-                .collect();
-            let cmd = cmd_parts.join(" ");
-            let max_width = (area.width.saturating_sub(4)) as usize;
-            if cmd.len() > max_width {
-                let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
-                lines.push(Line::from(Span::styled(truncated, Style::default().fg(Color::White))));
-            } else if cmd.is_empty() {
-                lines.push(Line::from(Span::styled("N/A", Style::default().fg(Color::White))))
-            } else {
-                lines.push(Line::from(Span::styled(cmd, Style::default().fg(Color::White))));
-            }
         }
+
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Command:",
+            Style::default().fg(Color::Cyan),
+        )));
+        let cmd = &app.detail_cmdline;
+        let max_width = (area.width.saturating_sub(4)) as usize;
+        if cmd.len() > max_width {
+            let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
+            lines.push(Line::from(Span::styled(
+                truncated,
+                Style::default().fg(Color::White),
+            )));
+        } else if cmd.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "N/A",
+                Style::default().fg(Color::White),
+            )))
+        } else {
+            lines.push(Line::from(Span::styled(
+                cmd.clone(),
+                Style::default().fg(Color::White),
+            )));
+        }
+
         lines
     } else {
         vec![

@@ -11,13 +11,13 @@ use crate::{
     gui::overlay::draw_input_overlay,
     helpers::{
         memory, network,
-        utils::{calculate_avg_cpu, generate_sparkline, generate_sparkline_with_max},
+        utils::{generate_sparkline, generate_sparkline_with_max},
     },
 };
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
-    let num_cpus = app.system.cpus().len();
-    let rows_per_column = (num_cpus + 1) / 2;
+    let num_cpus = app.cpu_usage.len();
+    let rows_per_column = num_cpus.div_ceil(2);
     let cpu_cores_height = (rows_per_column * 2) as u16;
     let cpu_total_height = 3 + 2 + cpu_cores_height;
 
@@ -38,7 +38,7 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
-    let avg_cpu: f32 = calculate_avg_cpu(app);
+    let avg_cpu: f32 = app.cpu_total_usage;
 
     let cpu_gauge = Gauge::default()
         .block(
@@ -61,19 +61,14 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(cpu_chunks[1]);
 
-    let cpus = app.system.cpus();
-    let half = (cpus.len() + 1) / 2;
+    let cpus = &app.cpu_usage;
+    let half = cpus.len().div_ceil(2);
 
-    let build_core_lines = |slice: &[sysinfo::Cpu]| {
+    let build_core_lines = |slice: &[f32], offset: usize| {
         let mut lines = Vec::new();
-        for (i, cpu) in slice.iter().enumerate() {
-            let global_idx = app
-                .system
-                .cpus()
-                .iter()
-                .position(|c| std::ptr::eq(c, cpu))
-                .unwrap_or(i);
-            let usage = cpu.cpu_usage();
+        for (i, usage) in slice.iter().enumerate() {
+            let usage = *usage;
+            let global_idx = offset + i;
 
             let history = app
                 .cpu_history
@@ -83,7 +78,7 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
             let sparkline = if !history.is_empty() {
                 generate_sparkline(history)
             } else {
-                String::from("▁".repeat(20))
+                "▁".repeat(20)
             };
 
             let color = if usage > 80.0 {
@@ -109,8 +104,8 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
         lines
     };
 
-    let left_lines = build_core_lines(&cpus[..half]);
-    let right_lines = build_core_lines(&cpus[half..]);
+    let left_lines = build_core_lines(&cpus[..half], 0);
+    let right_lines = build_core_lines(&cpus[half..], half);
 
     let left_widget = Paragraph::new(left_lines)
         .block(
@@ -229,7 +224,7 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         ]),
     ])
     .block(Block::default().borders(Borders::ALL).title(format!(
-        "Network History (Total: ↓ {:.2} MB / ↑ {:.2} MB)",
+        "Network History (last interval: ↓ {:.2} MB / ↑ {:.2} MB)",
         total_rx as f64 / 1024.0 / 1024.0,
         total_tx as f64 / 1024.0 / 1024.0
     )))
@@ -237,7 +232,7 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
 
     f.render_widget(summary, net_chunks[0]);
 
-    // Dettagli per interfaccia
+    // Per-interface details
     let net_info: Vec<Line> = network::per_interface_info(app)
         .iter()
         .map(|(name, rx, tx)| {
@@ -257,7 +252,7 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Per-Interface Stats"),
+                .title("Per-Interface Stats (last interval)"),
         )
         .alignment(Alignment::Left);
 
