@@ -281,8 +281,8 @@ fn draw_gpu_section(f: &mut Frame, app: &App, area: Rect) {
 
 /// nvtop-style chart: GPU core % and VRAM % share one 0-100% plot.
 fn draw_gpu_chart(f: &mut Frame, gpu: &GpuInfo, area: Rect) {
-    let gpu_style = Style::default().fg(Color::Yellow);
-    let mem_style = Style::default().fg(Color::Magenta);
+    let gpu_style = Style::default().fg(Color::Blue);
+    let mem_style = Style::default().fg(Color::Green);
 
     let gpu_points: Vec<(f64, f64)> = gpu
         .history

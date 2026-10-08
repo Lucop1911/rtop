@@ -182,6 +182,30 @@ impl App {
 /// Renders `data` as block sparkline characters scaled against `max`
 /// rather than against the window's own peak, so bar heights stay
 /// meaningful across samples and rows. Values are clamped to `max`.
+/// Truncates `s` to at most `max` bytes, appending `...` when cut.
+/// Never splits a UTF-8 sequence (command lines with non-ASCII
+/// arguments would otherwise panic on a byte slice).
+pub fn truncate_ellipsis(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    if max <= 3 {
+        let mut out = String::new();
+        for (i, ch) in s.char_indices() {
+            if i + ch.len_utf8() > max {
+                break;
+            }
+            out.push(ch);
+        }
+        return out;
+    }
+    let mut end = max - 3;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &s[..end])
+}
+
 pub fn generate_sparkline(data: &[f32], max: f32) -> String {
     if data.is_empty() {
         return String::new();

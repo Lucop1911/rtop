@@ -4,10 +4,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Row, Table},
+    widgets::{Block, Borders, Cell, Clear, Paragraph, Row, Table},
 };
 
-use crate::{App, SortColumn, gui::overlay::draw_input_overlay};
+use crate::{App, SortColumn, gui::overlay::draw_input_overlay, helpers::utils::truncate_ellipsis};
 
 pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
     let min_width_needed = 10 + 10 + 20 + 12 + 15; // line# + PID + Name(min) + CPU + Memory
@@ -58,13 +58,13 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             let actual_idx = start + i;
             let info = &app.processes[row.proc_idx];
 
-            // Flat name, truncated to the column width like htop.
-            let max_name_len = name_width as usize;
-            let name = if info.name.len() > max_name_len {
-                format!("{}...", &info.name[..max_name_len - 3])
-            } else {
-                info.name.clone()
-            };
+            // Flat name and command, truncated to the column width
+            // like htop (the command gives up one column so a full-
+            // width cell never butts against the CPU% column). The
+            // command is grey so the name stays the primary identifier.
+            let name = truncate_ellipsis(&info.name, name_width as usize);
+            let command =
+                truncate_ellipsis(&info.command, columns.cmd_width.saturating_sub(1) as usize);
 
             let is_selected = Some(actual_idx) == app.table_state.selected();
             let style = if is_selected {
@@ -83,11 +83,12 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
             );
 
             Row::new(vec![
-                line_num,
-                format!("{}", info.pid),
-                name,
-                format!("{:.1}%", info.cpu_usage),
-                format!("{:.2} MB", info.memory as f64 / 1024.0 / 1024.0),
+                Cell::from(line_num),
+                Cell::from(format!("{}", info.pid)),
+                Cell::from(name),
+                Cell::from(command).style(Style::default().fg(Color::Gray)),
+                Cell::from(format!("{:.1}%", info.cpu_usage)),
+                Cell::from(format!("{:.2} MB", info.memory as f64 / 1024.0 / 1024.0)),
             ])
             .style(style)
         })
@@ -95,6 +96,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
 
     let pid_header = get_header_with_indicator("PID", SortColumn::Pid, app);
     let name_header = get_header_with_indicator("Name", SortColumn::Name, app);
+    let cmd_header = get_header_with_indicator("Command", SortColumn::Command, app);
     let cpu_header = get_header_with_indicator("CPU%", SortColumn::Cpu, app);
     let mem_header = get_header_with_indicator("Memory", SortColumn::Memory, app);
 
@@ -102,6 +104,7 @@ pub fn draw_processes(f: &mut Frame, app: &mut App, area: Rect) {
         "#",
         &pid_header,
         &name_header,
+        &cmd_header,
         &cpu_header,
         &mem_header,
     ])
@@ -315,20 +318,14 @@ fn draw_detail_panel(f: &mut Frame, app: &App, area: Rect) {
         )));
         let cmd = &app.detail_cmdline;
         let max_width = (area.width.saturating_sub(4)) as usize;
-        if cmd.len() > max_width {
-            let truncated = format!("{}...", &cmd[..max_width.saturating_sub(3)]);
-            lines.push(Line::from(Span::styled(
-                truncated,
-                Style::default().fg(Color::White),
-            )));
-        } else if cmd.is_empty() {
+        if cmd.is_empty() {
             lines.push(Line::from(Span::styled(
                 "N/A",
                 Style::default().fg(Color::White),
-            )))
+            )));
         } else {
             lines.push(Line::from(Span::styled(
-                cmd.clone(),
+                truncate_ellipsis(cmd, max_width),
                 Style::default().fg(Color::White),
             )));
         }

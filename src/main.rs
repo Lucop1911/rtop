@@ -31,6 +31,7 @@ use crate::helpers::{keyboard::handle_key_event, mouse::handle_mouse, ui::ui};
 enum SortColumn {
     Pid,
     Name,
+    Command,
     Cpu,
     Memory,
 }
@@ -63,8 +64,12 @@ enum InputMode {
 #[derive(Clone)]
 struct ProcessInfo {
     pid: u32,
+    /// Parent process id
     ppid: u32,
     name: String,
+    /// Full command line (arguments joined by spaces); `-` for kernel
+    /// threads and zombies, which have no command line.
+    command: String,
     /// Human readable state, e.g. "Running", "Sleeping", "Zombie".
     status: String,
     /// CPU usage since the previous sample, in percent of all cores

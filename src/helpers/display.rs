@@ -39,6 +39,7 @@ impl App {
             let ordering = match sort_column {
                 SortColumn::Pid => x.pid.cmp(&y.pid),
                 SortColumn::Name => x.name.cmp(&y.name),
+                SortColumn::Command => x.command.cmp(&y.command),
                 SortColumn::Cpu => x
                     .cpu_usage
                     .partial_cmp(&y.cpu_usage)

@@ -135,6 +135,24 @@ impl App {
                 None
             };
 
+            // Full command line for the Command column. One extra small
+            // read per process per sample; kernel threads and zombies
+            // have none, so show a dash instead.
+            let command = process
+                .cmdline()
+                .map(|args| {
+                    args.iter()
+                        .map(|s| s.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .unwrap_or_default();
+            let command = if command.is_empty() {
+                "-".to_string()
+            } else {
+                command
+            };
+
             let cpu_time = stat.utime.saturating_add(stat.stime);
             // Normalize across all cores (htop with "Irix mode" off):
             // 100% means the whole machine, so a process on one full
@@ -154,6 +172,7 @@ impl App {
                 pid: stat.pid,
                 ppid: stat.ppid,
                 name: stat.comm.to_string(),
+                command,
                 status: state_name(stat.state).to_string(),
                 cpu_usage,
                 memory: stat.rss.max(0) as u64 * self.page_size,
