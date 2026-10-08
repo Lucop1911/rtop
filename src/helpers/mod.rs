@@ -1,5 +1,6 @@
 pub mod columns;
 pub mod display;
+pub mod gpu;
 pub mod keyboard;
 pub mod manage_process;
 pub mod memory;

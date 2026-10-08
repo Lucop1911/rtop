@@ -9,7 +9,7 @@ pub fn calculate_network_totals(app: &App) -> (u64, u64) {
         })
 }
 
-/// Per-interface (name, received_MB, transmitted_MB) since the last sample.
+/// Per-interface (name, received_MiB, transmitted_MiB) since the last sample.
 pub fn per_interface_info(app: &App) -> Vec<(String, f64, f64)> {
     app.net_deltas
         .iter()

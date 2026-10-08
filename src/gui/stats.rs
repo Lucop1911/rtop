@@ -2,17 +2,15 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
+    symbols::Marker,
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, Paragraph},
+    widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, GraphType, Paragraph},
 };
 
 use crate::{
     App,
     gui::overlay::draw_input_overlay,
-    helpers::{
-        memory, network,
-        utils::{generate_sparkline, generate_sparkline_with_max},
-    },
+    helpers::{gpu::GpuInfo, memory, network, utils::generate_sparkline},
 };
 
 pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
@@ -25,14 +23,16 @@ pub fn draw_stats(f: &mut Frame, app: &App, area: Rect) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(cpu_total_height), // CPU
-            Constraint::Length(7),                // Memory
-            Constraint::Min(5),                   // Networ
+            Constraint::Length(3),                // Memory
+            Constraint::Length(6),                // Network (history + per-interface)
+            Constraint::Min(5),                   // GPU (gets the space left at the bottom)
         ])
         .split(area);
 
     draw_cpu_section(f, app, chunks[0]);
     draw_memory_section(f, app, chunks[1]);
     draw_network_section(f, app, chunks[2]);
+    draw_gpu_section(f, app, chunks[3]);
 
     draw_input_overlay(f, app);
 }
@@ -76,7 +76,7 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
                 .map(|h| &h[..])
                 .unwrap_or(&[]);
             let sparkline = if !history.is_empty() {
-                generate_sparkline(history)
+                generate_sparkline(history, 100.0)
             } else {
                 "▁".repeat(20)
             };
@@ -130,11 +130,6 @@ fn draw_cpu_section(f: &mut Frame, app: &App, area: Rect) {
 fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
     let (used_mem, total_mem, mem_percent) = memory::calculate_memory(app);
 
-    let mem_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Length(4)])
-        .split(area);
-
     let mem_gauge = Gauge::default()
         .block(Block::default().borders(Borders::ALL).title(format!(
             "Memory: {:.2} GB / {:.2} GB ({:.1}%)",
@@ -145,92 +140,95 @@ fn draw_memory_section(f: &mut Frame, app: &App, area: Rect) {
         .gauge_style(Style::default().fg(Color::Green))
         .percent(mem_percent);
 
-    f.render_widget(mem_gauge, mem_chunks[0]);
-
-    let history_width = mem_chunks[1].width.saturating_sub(4) as usize;
-
-    let mem_sparkline = if app.memory_history.is_empty() {
-        "▁".repeat(history_width.min(60))
-    } else if app.memory_history.len() >= history_width {
-        let start_idx = app.memory_history.len() - history_width;
-        let sampled: Vec<f32> = app.memory_history[start_idx..]
-            .iter()
-            .map(|&x| x as f32)
-            .collect();
-        generate_sparkline_with_max(&sampled, total_mem as f32)
-    } else {
-        let mem_data: Vec<f32> = app.memory_history.iter().map(|&x| x as f32).collect();
-        generate_sparkline_with_max(&mem_data, total_mem as f32)
-    };
-
-    let history_text = vec![Line::from(vec![
-        Span::styled("History: ", Style::default().fg(Color::Cyan)),
-        Span::styled(mem_sparkline, Style::default().fg(Color::Green)),
-    ])];
-
-    let history = Paragraph::new(history_text)
-        .block(Block::default().borders(Borders::ALL).title("Memory Trend"))
-        .alignment(Alignment::Left);
-
-    f.render_widget(history, mem_chunks[1]);
+    f.render_widget(mem_gauge, area);
 }
 
 fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
     let (total_rx, total_tx) = network::calculate_network_totals(app);
 
-    let net_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(6), Constraint::Min(1)])
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    let inner_width = net_chunks[0].width.saturating_sub(4) as usize; // Remove borders
-    let label_width = "↓ Received: ".len();
-    let sparkline_width = inner_width.saturating_sub(label_width).max(20);
+    const MIB: f64 = 1024.0 * 1024.0;
+    let rx_points: Vec<(f64, f64)> = app
+        .network_history
+        .iter()
+        .enumerate()
+        .map(|(i, &(rx, _))| (i as f64, rx as f64 / MIB))
+        .collect();
+    let tx_points: Vec<(f64, f64)> = app
+        .network_history
+        .iter()
+        .enumerate()
+        .map(|(i, &(_, tx))| (i as f64, tx as f64 / MIB))
+        .collect();
 
-    let sample_network = |history: &[(u64, u64)], extract_fn: fn(&(u64, u64)) -> u64| -> String {
-        if history.is_empty() {
-            return "▁".repeat(sparkline_width.min(60));
-        }
+    // One shared scale for both lines so their heights are comparable.
+    let peak = rx_points
+        .iter()
+        .chain(tx_points.iter())
+        .fold(0.0f64, |m, &(_, v)| m.max(v));
 
-        if history.len() >= sparkline_width {
-            let start_idx = history.len() - sparkline_width;
-            let sampled: Vec<f32> = history[start_idx..]
-                .iter()
-                .map(|item| extract_fn(item) as f32 / 1024.0 / 1024.0)
-                .collect();
-            generate_sparkline(&sampled)
+    let dim = Style::default().fg(Color::DarkGray);
+    let fmt_label = |v: f64| {
+        if v >= 100.0 {
+            format!("{v:.0}")
+        } else if v >= 10.0 {
+            format!("{v:.1}")
+        } else if v >= 0.1 {
+            format!("{v:.2}")
         } else {
-            let data: Vec<f32> = history
-                .iter()
-                .map(|item| extract_fn(item) as f32 / 1024.0 / 1024.0)
-                .collect();
-            generate_sparkline(&data)
+            format!("{v:.3}")
         }
     };
+    let (y_max, y_labels) = if peak > 0.0 {
+        (
+            peak,
+            vec![
+                Span::styled("0", dim),
+                Span::styled(fmt_label(peak / 2.0), dim),
+                Span::styled(fmt_label(peak), dim),
+            ],
+        )
+    } else {
+        (1.0, vec![Span::styled("0", dim), Span::styled("1", dim)])
+    };
 
-    let rx_sparkline = sample_network(&app.network_history, |&(rx, _)| rx);
-    let tx_sparkline = sample_network(&app.network_history, |&(_, tx)| tx);
+    // The title doubles as the legend; the y-axis carries the scale in MiB.
+    let title = Line::from(vec![
+        Span::raw(" Network History  "),
+        Span::styled(
+            format!("↓ {:.2}", total_rx as f64 / MIB),
+            Style::default().fg(Color::Green),
+        ),
+        Span::raw("  "),
+        Span::styled(
+            format!("↑ {:.2}", total_tx as f64 / MIB),
+            Style::default().fg(Color::Blue),
+        ),
+        Span::raw(" MiB"),
+    ]);
 
-    let summary = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("↓ Received: ", Style::default().fg(Color::Green)),
-            Span::styled(rx_sparkline, Style::default().fg(Color::Green)),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("↑ Sent:     ", Style::default().fg(Color::Blue)),
-            Span::styled(tx_sparkline, Style::default().fg(Color::Blue)),
-        ]),
+    let x_max = (app.network_history.len().saturating_sub(1)).max(1) as f64;
+    let chart = Chart::new(vec![
+        Dataset::default()
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Green))
+            .data(&rx_points),
+        Dataset::default()
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(Style::default().fg(Color::Blue))
+            .data(&tx_points),
     ])
-    .block(Block::default().borders(Borders::ALL).title(format!(
-        "Network History (last interval: ↓ {:.2} MB / ↑ {:.2} MB)",
-        total_rx as f64 / 1024.0 / 1024.0,
-        total_tx as f64 / 1024.0 / 1024.0
-    )))
-    .alignment(Alignment::Left);
+    .block(Block::default().borders(Borders::ALL).title(title))
+    .x_axis(Axis::default().bounds([0.0, x_max]))
+    .y_axis(Axis::default().bounds([0.0, y_max]).labels(y_labels));
 
-    f.render_widget(summary, net_chunks[0]);
+    f.render_widget(chart, cols[0]);
 
     // Per-interface details
     let net_info: Vec<Line> = network::per_interface_info(app)
@@ -239,11 +237,14 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
             Line::from(vec![
                 Span::styled(format!("{:12}: ", name), Style::default().fg(Color::Cyan)),
                 Span::styled(
-                    format!("↓ {:8.2} MB", rx),
+                    format!("↓ {:8.2} MiB", rx),
                     Style::default().fg(Color::Green),
                 ),
                 Span::raw(" / "),
-                Span::styled(format!("↑ {:8.2} MB", tx), Style::default().fg(Color::Blue)),
+                Span::styled(
+                    format!("↑ {:8.2} MiB", tx),
+                    Style::default().fg(Color::Blue),
+                ),
             ])
         })
         .collect();
@@ -256,5 +257,119 @@ fn draw_network_section(f: &mut Frame, app: &App, area: Rect) {
         )
         .alignment(Alignment::Left);
 
-    f.render_widget(interfaces, net_chunks[1]);
+    f.render_widget(interfaces, cols[1]);
+}
+
+fn draw_gpu_section(f: &mut Frame, app: &App, area: Rect) {
+    if app.gpus.is_empty() {
+        let none = Paragraph::new("No GPU detected")
+            .block(Block::default().borders(Borders::ALL).title("GPU Usage"));
+        f.render_widget(none, area);
+        return;
+    }
+
+    let n = app.gpus.len() as u16;
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(vec![Constraint::Ratio(1, n as u32); n as usize])
+        .split(area);
+
+    for (i, gpu) in app.gpus.iter().enumerate() {
+        draw_gpu_chart(f, gpu, cols[i]);
+    }
+}
+
+/// nvtop-style chart: GPU core % and VRAM % share one 0-100% plot.
+fn draw_gpu_chart(f: &mut Frame, gpu: &GpuInfo, area: Rect) {
+    let gpu_style = Style::default().fg(Color::Yellow);
+    let mem_style = Style::default().fg(Color::Magenta);
+
+    let gpu_points: Vec<(f64, f64)> = gpu
+        .history
+        .iter()
+        .enumerate()
+        .map(|(i, (g, _))| (i as f64, f64::from(*g)))
+        .collect();
+    let mem_points: Vec<(f64, f64)> = gpu
+        .history
+        .iter()
+        .enumerate()
+        .map(|(i, (_, m))| (i as f64, f64::from(*m)))
+        .collect();
+
+    let mem_pct = if gpu.mem_total > 0 {
+        gpu.mem_used as f32 / gpu.mem_total as f32 * 100.0
+    } else {
+        0.0
+    };
+
+    // The title doubles as the legend: value colors match the lines.
+    // On narrow terminals drop the MiB breakdown, then the name, so the
+    // title never gets cut mid-token.
+    let gpu_part = format!("GPU {:5.1}%", gpu.usage);
+    let mem_short = if gpu.mem_total > 0 {
+        format!("MEM {:5.1}%", mem_pct)
+    } else {
+        "MEM n/a".to_string()
+    };
+    let mem_long = if gpu.mem_total > 0 {
+        format!(
+            "{} ({:.0}/{:.0} MiB)",
+            mem_short,
+            gpu.mem_used as f64 / 1024.0 / 1024.0,
+            gpu.mem_total as f64 / 1024.0 / 1024.0
+        )
+    } else {
+        mem_short.clone()
+    };
+
+    let inner = area.width.saturating_sub(2) as usize; // inside the borders
+    let fits =
+        |name_len: usize, mem: &str| 1 + name_len + 2 + gpu_part.len() + 2 + mem.len() <= inner;
+    let (name, mem_part) = if fits(gpu.name.len(), &mem_long) {
+        (gpu.name.clone(), mem_long)
+    } else if fits(gpu.name.len(), &mem_short) {
+        (gpu.name.clone(), mem_short)
+    } else {
+        (String::new(), mem_short)
+    };
+
+    let mut title_spans = vec![Span::raw(" ")];
+    if !name.is_empty() {
+        title_spans.push(Span::styled(name, Style::default().fg(Color::White)));
+        title_spans.push(Span::raw("  "));
+    }
+    title_spans.push(Span::styled(gpu_part, gpu_style));
+    title_spans.push(Span::raw("  "));
+    title_spans.push(Span::styled(mem_part, mem_style));
+    let title = Line::from(title_spans);
+
+    let mut datasets = vec![
+        Dataset::default()
+            .marker(Marker::Braille)
+            .graph_type(GraphType::Line)
+            .style(gpu_style)
+            .data(&gpu_points),
+    ];
+    if gpu.mem_total > 0 {
+        datasets.push(
+            Dataset::default()
+                .marker(Marker::Braille)
+                .graph_type(GraphType::Line)
+                .style(mem_style)
+                .data(&mem_points),
+        );
+    }
+
+    let dim = Style::default().fg(Color::DarkGray);
+    let chart = Chart::new(datasets)
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .x_axis(Axis::default().bounds([0.0, (gpu.history.len().saturating_sub(1)).max(1) as f64]))
+        .y_axis(Axis::default().bounds([0.0, 100.0]).labels([
+            Span::styled("0", dim),
+            Span::styled("50", dim),
+            Span::styled("100", dim),
+        ]));
+
+    f.render_widget(chart, area);
 }

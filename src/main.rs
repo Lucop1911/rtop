@@ -148,6 +148,8 @@ struct App {
     mem_total_gb: f64,
     /// Per-interface bytes received/transmitted since the last sample.
     net_deltas: Vec<(String, u64, u64)>,
+    /// Discovered GPUs (amdgpu sysfs + NVML), sampled every refresh.
+    gpus: Vec<helpers::gpu::GpuInfo>,
 
     // Cached details of the selected process for the detail panel, so
     // drawing never reads `/proc` (refreshed on selection change and
@@ -159,7 +161,6 @@ struct App {
     search_query: String,
     last_update: Instant,
     cpu_history: Vec<Vec<f32>>,
-    memory_history: Vec<f64>,
     network_history: Vec<(u64, u64)>,
     table_area: Rect,
     header_area: Rect,
@@ -207,13 +208,13 @@ impl App {
             mem_used_gb: 0.0,
             mem_total_gb: 0.0,
             net_deltas: Vec::new(),
+            gpus: helpers::gpu::discover(),
             detail_cmdline: String::new(),
             detail_io: None,
             search_mode: false,
             search_query: String::new(),
             last_update: Instant::now(),
             cpu_history: vec![vec![]; 60],
-            memory_history: Vec::new(),
             network_history: vec![(0, 0); 60],
             table_area: Rect::default(),
             header_area: Rect::default(),

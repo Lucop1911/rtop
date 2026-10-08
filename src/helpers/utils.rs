@@ -179,41 +179,25 @@ impl App {
     }
 }
 
-pub fn generate_sparkline(data: &[f32]) -> String {
+/// Renders `data` as block sparkline characters scaled against `max`
+/// rather than against the window's own peak, so bar heights stay
+/// meaningful across samples and rows. Values are clamped to `max`.
+pub fn generate_sparkline(data: &[f32], max: f32) -> String {
     if data.is_empty() {
         return String::new();
     }
 
     let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    let max = data.iter().cloned().fold(0.0f32, f32::max);
 
-    if max == 0.0 {
+    if max <= 0.0 {
         return "▁".repeat(data.len());
     }
 
     data.iter()
         .map(|&val| {
-            let normalized = (val / max * (chars.len() - 1) as f32) as usize;
+            let ratio = (val / max).clamp(0.0, 1.0);
+            let normalized = (ratio * (chars.len() - 1) as f32) as usize;
             chars[normalized]
-        })
-        .collect()
-}
-
-pub fn generate_sparkline_with_max(data: &[f32], max_value: f32) -> String {
-    if data.is_empty() {
-        return String::new();
-    }
-
-    let chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-
-    if max_value == 0.0 {
-        return "▁".repeat(data.len());
-    }
-
-    data.iter()
-        .map(|&val| {
-            let normalized = ((val / max_value) * (chars.len() - 1) as f32) as usize;
-            chars[normalized.min(chars.len() - 1)]
         })
         .collect()
 }

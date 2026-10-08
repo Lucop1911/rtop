@@ -4,6 +4,7 @@ use std::time::Instant;
 use procfs2::proc;
 use procfs2::proc::stat::CpuTime;
 
+use super::gpu;
 use crate::{App, ProcessInfo};
 
 impl App {
@@ -22,6 +23,7 @@ impl App {
         self.sample_cpu();
         self.sample_memory();
         self.sample_network();
+        gpu::sample(&mut self.gpus);
         self.sample_processes();
         self.rebuild_display();
         self.last_update = Instant::now();
@@ -75,11 +77,6 @@ impl App {
 
         self.mem_total_gb = total_kb as f64 / 1024.0 / 1024.0;
         self.mem_used_gb = used_kb as f64 / 1024.0 / 1024.0;
-
-        self.memory_history.push(self.mem_used_gb);
-        if self.memory_history.len() > 60 {
-            self.memory_history.remove(0);
-        }
     }
 
     fn sample_network(&mut self) {
